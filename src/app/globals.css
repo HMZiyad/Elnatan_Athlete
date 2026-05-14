@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #0066FF;
+  --color-primary-hover: #0052CC;
+  --color-dark-100: #1A1A1A;
+  --color-dark-200: #121212;
+  --color-dark-300: #0D0D0D;
+  --color-dark-400: #0A0A0A;
+  --color-accent-green: #00FF85;
+  
+  --font-sans: "Inter", sans-serif;
+  --font-heading: "Inter Tight", sans-serif;
+  
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+}
+
+:root {
+  --background: #0A0A0A;
+  --foreground: #FFFFFF;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-white px-6 py-3 rounded-full font-medium transition-all hover:bg-primary-hover;
+  }
+  
+  .glass-card {
+    @apply bg-dark-100/50 backdrop-blur-md border border-white/10 rounded-xl p-6;
+  }
+  
+  .heading-xl {
+    @apply text-4xl md:text-6xl font-bold tracking-tight uppercase font-heading;
+  }
+}
