@@ -25,6 +25,11 @@ export const LoginForm = ({ onRoleChange }: LoginFormProps) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Simulate authentication
+    localStorage.setItem('isLoggedIn', 'true');
+    localStorage.setItem('userRole', role);
+    
     if (role === 'fan') {
       router.push('/fan');
     } else {
