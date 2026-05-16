@@ -8,13 +8,28 @@ import { RoleCard } from './RoleCard';
 import { Input } from '../atoms/Input';
 import { Button } from '../atoms/Button';
 
-export const SignupForm = () => {
+interface SignupFormProps {
+  onRoleChange?: (role: 'athlete' | 'fan') => void;
+}
+
+export const SignupForm = ({ onRoleChange }: SignupFormProps) => {
   const [role, setRole] = useState<'athlete' | 'fan'>('athlete');
   const router = useRouter();
 
+  const handleRoleSelect = (newRole: 'athlete' | 'fan') => {
+    setRole(newRole);
+    if (onRoleChange) {
+      onRoleChange(newRole);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    router.push('/athlete/onboarding');
+    if (role === 'fan') {
+      router.push('/fan');
+    } else {
+      router.push('/athlete/onboarding');
+    }
   };
 
   return (
@@ -55,14 +70,14 @@ export const SignupForm = () => {
               description="Showcase + Earn"
               icon={<Bolt size={20} />}
               isActive={role === 'athlete'}
-              onClick={() => setRole('athlete')}
+              onClick={() => handleRoleSelect('athlete')}
             />
             <RoleCard 
               role="Fan"
               description="Discover + Vote"
               icon={<Users size={20} />}
               isActive={role === 'fan'}
-              onClick={() => setRole('fan')}
+              onClick={() => handleRoleSelect('fan')}
             />
           </div>
         </div>
