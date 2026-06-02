@@ -1,7 +1,6 @@
-"use client";
-
 import React, { useState } from 'react';
 import { Button } from '../../atoms/Button';
+import { apiCall } from '../../../utils/api';
 
 interface AgreementStepProps {
   onBack: () => void;
@@ -10,6 +9,31 @@ interface AgreementStepProps {
 
 export const AgreementStep: React.FC<AgreementStepProps> = ({ onBack, onAgree }) => {
   const [agreed, setAgreed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    if (!agreed) return;
+
+    setError('');
+    setSubmitting(true);
+
+    try {
+      await apiCall('/athletes/me/onboarding/terms', {
+        method: 'PUT',
+        body: JSON.stringify({
+          agreed_to_terms: true,
+          agreed_to_privacy: true,
+          agreed_to_earnings_policy: true,
+        }),
+      });
+      onAgree();
+    } catch (err: any) {
+      setError(err.message || 'Failed to save terms agreement. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-16 max-w-4xl">
@@ -17,6 +41,12 @@ export const AgreementStep: React.FC<AgreementStepProps> = ({ onBack, onAgree })
         <h2 className="text-6xl font-bold tracking-tight uppercase leading-none">Media Release & Terms of Use Agreement</h2>
         <p className="text-white/40 text-lg max-w-2xl">By participating, you agree to the following terms regarding your content and likeness.</p>
       </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      )}
 
       <div className="space-y-10 bg-dark-400 p-10 rounded-2xl border border-white/5 max-h-[500px] overflow-y-auto custom-scrollbar">
         {[
@@ -46,6 +76,7 @@ export const AgreementStep: React.FC<AgreementStepProps> = ({ onBack, onAgree })
             className="hidden" 
             checked={agreed} 
             onChange={() => setAgreed(!agreed)} 
+            disabled={submitting}
           />
           <span className="text-sm font-bold uppercase tracking-widest text-white/60 group-hover:text-white transition-colors">
             I Agree To The Media Release & Terms Of Use
@@ -53,13 +84,13 @@ export const AgreementStep: React.FC<AgreementStepProps> = ({ onBack, onAgree })
         </label>
 
         <div className="flex gap-4">
-          <Button variant="outline" onClick={onBack} className="px-10 uppercase tracking-widest text-xs">Back</Button>
+          <Button variant="outline" onClick={onBack} className="px-10 uppercase tracking-widest text-xs" disabled={submitting}>Back</Button>
           <Button 
-            onClick={onAgree} 
-            disabled={!agreed}
+            onClick={handleSubmit} 
+            disabled={!agreed || submitting}
             className="px-12 uppercase tracking-widest text-xs group disabled:opacity-50"
           >
-            Agree and Continue <span className="ml-2 group-hover:translate-x-1 transition-transform">→</span>
+            {submitting ? 'Saving...' : 'Agree and Continue'} <span className="ml-2 group-hover:translate-x-1 transition-transform">→</span>
           </Button>
         </div>
       </div>

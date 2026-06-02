@@ -1,0 +1,278 @@
+{
+  "info": {
+    "_postman_id": "uag-api-collection-v1",
+    "name": "UAG Platform API",
+    "description": "Complete API collection for the UAG (Underrated Athlete Group) platform. Import and set environment variables: base_url, fan_token, athlete_token, admin_token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080/api/v1", "type": "string" },
+    { "key": "fan_token", "value": "", "type": "string" },
+    { "key": "athlete_token", "value": "", "type": "string" },
+    { "key": "admin_token", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "🔐 Public Auth",
+      "item": [
+        {
+          "name": "Register (Fan)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/register",
+            "body": { "mode": "raw", "raw": "{\n  \"full_name\": \"Jon Kabir\",\n  \"email\": \"jon@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"role\": \"fan\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));", "const d = pm.response.json(); if(d.data && d.data.token) { pm.collectionVariables.set('fan_token', d.data.token); pm.test('Fan token saved', () => true); }"] } }]
+        },
+        {
+          "name": "Register (Athlete)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/register",
+            "body": { "mode": "raw", "raw": "{\n  \"full_name\": \"Maya Reyes\",\n  \"email\": \"maya@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"role\": \"athlete\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));", "const d = pm.response.json(); if(d.data && d.data.token) { pm.collectionVariables.set('athlete_token', d.data.token); }"] } }]
+        },
+        {
+          "name": "Login (Fan)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"jon@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"role\": \"fan\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "const d = pm.response.json(); pm.collectionVariables.set('fan_token', d.data.token);"] } }]
+        },
+        {
+          "name": "Login (Athlete)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"maya@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"role\": \"athlete\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "const d = pm.response.json(); pm.collectionVariables.set('athlete_token', d.data.token);"] } }]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }],
+            "url": "{{base_url}}/auth/logout"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"] } }]
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/forgot-password",
+            "body": { "mode": "raw", "raw": "{ \"email\": \"jon@example.com\" }" }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/reset-password",
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"NewPass123!\",\n  \"confirm_password\": \"NewPass123!\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔐 Admin Auth",
+      "item": [
+        {
+          "name": "Admin Signup (First Admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/admin/auth/signup",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@uag.com\",\n  \"password\": \"AdminPass123!\",\n  \"confirm_password\": \"AdminPass123!\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));", "const d = pm.response.json(); pm.collectionVariables.set('admin_token', d.data.token);"] } }]
+        },
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/admin/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@uag.com\",\n  \"password\": \"AdminPass123!\"\n}" }
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "const d = pm.response.json(); pm.collectionVariables.set('admin_token', d.data.token);"] } }]
+        },
+        { "name": "Admin Forgot Password", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/admin/auth/forgot-password", "body": { "mode": "raw", "raw": "{ \"email\": \"admin@uag.com\" }" } } },
+        { "name": "Admin Verify OTP", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/admin/auth/verify-code", "body": { "mode": "raw", "raw": "{ \"email\": \"admin@uag.com\", \"code\": \"123456\" }" } } },
+        { "name": "Admin Reset Password", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/admin/auth/reset-password", "body": { "mode": "raw", "raw": "{ \"reset_token\": \"{{reset_token}}\", \"new_password\": \"NewAdminPass!\", \"confirm_password\": \"NewAdminPass!\" }" } } }
+      ]
+    },
+    {
+      "name": "🏋️ Athlete Onboarding",
+      "item": [
+        {
+          "name": "Onboarding Status",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/onboarding/status" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Has step data', () => pm.expect(pm.response.json().data).to.have.property('current_step'));"] } }]
+        },
+        {
+          "name": "Step 1: Identity",
+          "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/athletes/me/onboarding/identity", "body": { "mode": "raw", "raw": "{\n  \"full_name\": \"Maya Reyes\",\n  \"username\": \"mayareyes\",\n  \"date_of_birth\": \"2002-08-15\",\n  \"location\": \"Brooklyn, NY\"\n}" } },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"] } }]
+        },
+        { "name": "Step 2: Sport", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/athletes/me/onboarding/sport", "body": { "mode": "raw", "raw": "{\n  \"sport\": \"Track & Field\",\n  \"level\": \"Semi Pro\",\n  \"recent_achievements\": \"2x National 200m champion\",\n  \"stats\": {\n    \"sprint_200m\": \"22.84s\",\n    \"personal_best\": \"22.84s\"\n  }\n}" } } },
+        { "name": "Step 3: Story", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/athletes/me/onboarding/story", "body": { "mode": "raw", "raw": "{\n  \"bio\": \"Two-time national champion. Training out of a community track.\",\n  \"socials\": {\n    \"instagram\": \"https://instagram.com/mayareyes\"\n  }\n}" } } },
+        { "name": "Step 4: Terms", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/athletes/me/onboarding/terms", "body": { "mode": "raw", "raw": "{\n  \"agreed_to_terms\": true,\n  \"agreed_to_privacy\": true,\n  \"agreed_to_earnings_policy\": true\n}" } } },
+        { "name": "Step 5: Verification", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/athletes/me/onboarding/verification", "body": { "mode": "raw", "raw": "{\n  \"id_document_url\": \"/uploads/id_docs/passport.pdf\"\n}" } } }
+      ]
+    },
+    {
+      "name": "🏋️ Athlete Dashboard",
+      "item": [
+        { "name": "My Stats", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/stats" } },
+        { "name": "My Earnings", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/earnings" } },
+        { "name": "My Referral", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/referral" } },
+        { "name": "Get Profile", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/profile" } },
+        { "name": "Update Profile", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/athletes/me/profile", "body": { "mode": "raw", "raw": "{ \"bio\": \"Updated bio here.\" }" } } },
+        { "name": "Add Media", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/athletes/me/media", "body": { "mode": "raw", "raw": "{ \"type\": \"photo\", \"url\": \"/uploads/photos/action1.jpg\" }" } } }
+      ]
+    },
+    {
+      "name": "🌍 Explore (Public)",
+      "item": [
+        {
+          "name": "List Athletes",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/athletes?page=1&per_page=10", "host": ["{{base_url}}"], "path": ["athletes"], "query": [{ "key": "page", "value": "1" }, { "key": "per_page", "value": "10" }] } },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Has data array', () => pm.expect(pm.response.json().data).to.be.an('array'));"] } }]
+        },
+        {
+          "name": "Get Athlete Profile",
+          "request": { "method": "GET", "url": "{{base_url}}/athletes/{{athlete_id}}" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200 or 404', () => pm.expect([200, 404]).to.include(pm.response.code));"] } }]
+        },
+        { "name": "Leaderboard", "request": { "method": "GET", "url": "{{base_url}}/athletes/leaderboard" } }
+      ]
+    },
+    {
+      "name": "🗳️ Voting",
+      "item": [
+        { "name": "Cast Vote", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/athletes/{{athlete_id}}/vote" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 201 or 409', () => pm.expect([201, 409]).to.include(pm.response.code));"] } }] },
+        { "name": "Vote Status", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/athletes/{{athlete_id}}/vote-status" } }
+      ]
+    },
+    {
+      "name": "⭐ Favorites",
+      "item": [
+        { "name": "List Favorites", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/fans/me/favorites" } },
+        { "name": "Add Favorite", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/fans/me/favorites", "body": { "mode": "raw", "raw": "{ \"athlete_id\": \"{{athlete_id}}\" }" } } },
+        { "name": "Remove Favorite", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/fans/me/favorites/{{athlete_id}}" } }
+      ]
+    },
+    {
+      "name": "👤 Fan Profile",
+      "item": [
+        { "name": "Get Profile", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/fans/me/profile" } },
+        { "name": "Update Profile", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/fans/me/profile", "body": { "mode": "raw", "raw": "{ \"first_name\": \"Jonathan\", \"last_name\": \"Kabir\", \"email\": \"jon@example.com\" }" } } },
+        { "name": "My Orders", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/fans/me/orders" } }
+      ]
+    },
+    {
+      "name": "🏠 Address Book",
+      "item": [
+        { "name": "List Addresses", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/users/me/addresses" } },
+        { "name": "Create Address", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/users/me/addresses", "body": { "mode": "raw", "raw": "{\n  \"label\": \"Home\",\n  \"full_name\": \"Jon Kabir\",\n  \"street\": \"123 Athlete Way, Apt 4B\",\n  \"city\": \"New York\",\n  \"state\": \"NY\",\n  \"zip\": \"10001\",\n  \"country\": \"US\",\n  \"is_default\": true\n}" } }, "event": [{ "listen": "test", "script": { "exec": ["const d = pm.response.json(); if(d.data && d.data.id) pm.collectionVariables.set('address_id', d.data.id);"] } }] },
+        { "name": "Set Default Address", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/users/me/addresses/{{address_id}}/set-default" } },
+        { "name": "Delete Address", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/users/me/addresses/{{address_id}}" } }
+      ]
+    },
+    {
+      "name": "💳 Payment Methods",
+      "item": [
+        { "name": "List Payment Methods", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/users/me/payment-methods" } },
+        { "name": "Attach Payment Method", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/users/me/payment-methods", "body": { "mode": "raw", "raw": "{ \"stripe_payment_method_id\": \"pm_card_visa\" }" } }, "event": [{ "listen": "test", "script": { "exec": ["const d = pm.response.json(); if(d.data && d.data.id) pm.collectionVariables.set('pm_id', d.data.id);"] } }] },
+        { "name": "Delete Payment Method", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/users/me/payment-methods/{{pm_id}}" } }
+      ]
+    },
+    {
+      "name": "🛍️ Shop",
+      "item": [
+        { "name": "List Products", "request": { "method": "GET", "url": "{{base_url}}/products" } },
+        { "name": "Get Product", "request": { "method": "GET", "url": "{{base_url}}/products/{{product_id}}" } },
+        { "name": "Get Cart", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/cart" } },
+        { "name": "Add to Cart", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/cart", "body": { "mode": "raw", "raw": "{ \"product_id\": \"{{product_id}}\", \"size\": \"L\", \"color\": \"Black\", \"quantity\": 1 }" } }, "event": [{ "listen": "test", "script": { "exec": ["const d = pm.response.json(); if(d.data && d.data.cart_item_id) pm.collectionVariables.set('cart_item_id', d.data.cart_item_id);"] } }] },
+        { "name": "Update Cart Item", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/cart/{{cart_item_id}}", "body": { "mode": "raw", "raw": "{ \"quantity\": 2 }" } } },
+        { "name": "Remove Cart Item", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }], "url": "{{base_url}}/cart/{{cart_item_id}}" } },
+        { "name": "Checkout (Place Order)", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{fan_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/orders", "body": { "mode": "raw", "raw": "{\n  \"address_id\": \"{{address_id}}\",\n  \"payment_method_id\": \"{{pm_id}}\"\n}" } } }
+      ]
+    },
+    {
+      "name": "🔧 Admin",
+      "item": [
+        { "name": "Dashboard Stats", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": "{{base_url}}/admin/stats" } },
+        { "name": "List Products", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": "{{base_url}}/admin/products" } },
+        { "name": "Create Product", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/admin/products", "body": { "mode": "raw", "raw": "{\n  \"name\": \"UAG Signature T-Shirt\",\n  \"category\": \"T-Shirts\",\n  \"price\": 65.00,\n  \"original_price\": 90.00,\n  \"inventory\": 50,\n  \"sizes\": [\"S\", \"M\", \"L\", \"XL\"],\n  \"colors\": [\"Black\", \"White\"]\n}" } }, "event": [{ "listen": "test", "script": { "exec": ["const d = pm.response.json(); if(d.data && d.data.id) pm.collectionVariables.set('product_id', d.data.id);"] } }] },
+        { "name": "Update Product", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/admin/products/{{product_id}}", "body": { "mode": "raw", "raw": "{ \"inventory\": 45 }" } } },
+        { "name": "Delete Product", "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": "{{base_url}}/admin/products/{{product_id}}" } },
+        { "name": "List Orders", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": "{{base_url}}/admin/orders" } },
+        { "name": "Update Order Status", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/admin/orders/{{order_id}}/status", "body": { "mode": "raw", "raw": "{ \"status\": \"Shipped\" }" } } },
+        { "name": "List Customers", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": "{{base_url}}/admin/customers" } },
+        { "name": "List Verifications (Pending)", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": { "raw": "{{base_url}}/admin/verifications?status=pending", "host": ["{{base_url}}"], "path": ["admin", "verifications"], "query": [{ "key": "status", "value": "pending" }] } } },
+        { "name": "Approve Athlete", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/admin/verifications/{{athlete_profile_id}}", "body": { "mode": "raw", "raw": "{ \"decision\": \"approved\", \"notes\": \"Valid passport confirmed.\" }" } } },
+        { "name": "Reject Athlete", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/admin/verifications/{{athlete_profile_id}}", "body": { "mode": "raw", "raw": "{ \"decision\": \"rejected\", \"notes\": \"Document was blurry. Please resubmit.\" }" } } },
+        { "name": "List Athletes (Admin)", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": "{{base_url}}/admin/athletes" } },
+        { "name": "Distribute Vote Income", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/admin/athletes/{{athlete_profile_id}}/distribute-income", "body": { "mode": "raw", "raw": "{\n  \"amount\": 500.00,\n  \"reason\": \"Monthly vote income distribution — June 2026\",\n  \"period\": \"2026-06\"\n}" } } },
+        { "name": "Athlete Transactions", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": "{{base_url}}/admin/athletes/{{athlete_profile_id}}/transactions" } }
+      ]
+    },
+    {
+      "name": "📁 File Upload",
+      "item": [
+        {
+          "name": "Upload Avatar",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }],
+            "url": "{{base_url}}/uploads",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "" },
+                { "key": "type", "value": "avatar", "type": "text" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload ID Document",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }],
+            "url": "{{base_url}}/uploads",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "" },
+                { "key": "type", "value": "id_doc", "type": "text" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "❤️ Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": { "method": "GET", "url": "{{base_url}}/health" },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Healthy', () => pm.response.to.have.status(200));"] } }]
+        }
+      ]
+    }
+  ]
+}

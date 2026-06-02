@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { ShoppingCart, Menu, X, User, Package, Heart, LogOut, ChevronDown } from 'lucide-react';
+import { apiCall } from '@/utils/api';
 
 const navLinks = [
   { label: 'Home', href: '/fan' },
@@ -21,21 +22,55 @@ export const FanNavbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userProfile, setUserProfile] = useState<{ fullName: string; email: string; avatarUrl?: string | null } | null>(null);
   
   useEffect(() => {
     // Check login state on mount and path change
     const authState = localStorage.getItem('isLoggedIn');
-    setIsLoggedIn(authState === 'true');
+    const token = localStorage.getItem('uag_token');
+    const loggedIn = authState === 'true' && !!token;
+    setIsLoggedIn(loggedIn);
+
+    if (loggedIn) {
+      const fetchNavbarProfile = async () => {
+        try {
+          const role = localStorage.getItem('userRole');
+          if (role === 'athlete') {
+            const res = await apiCall<{ data: { full_name: string; email: string; avatar_url?: string | null } }>('/athletes/me/profile');
+            setUserProfile({
+              fullName: res.data.full_name,
+              email: res.data.email,
+              avatarUrl: res.data.avatar_url,
+            });
+          } else {
+            const res = await apiCall<{ data: { first_name: string; last_name: string; email: string; avatar_url?: string | null } }>('/fans/me/profile');
+            setUserProfile({
+              fullName: `${res.data.first_name} ${res.data.last_name}`,
+              email: res.data.email,
+              avatarUrl: res.data.avatar_url,
+            });
+          }
+        } catch (err) {
+          console.error('Failed to fetch navbar profile:', err);
+        }
+      };
+      fetchNavbarProfile();
+    } else {
+      setUserProfile(null);
+    }
   }, [pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userRole');
+    localStorage.removeItem('uag_token');
     setIsLoggedIn(false);
+    setUserProfile(null);
     setIsProfileOpen(false);
     setMobileMenuOpen(false);
     router.push('/login');
   };
+
 
   return (
     <nav className="sticky top-0 z-50 bg-dark-400/90 backdrop-blur-md border-b border-white/5">
@@ -90,12 +125,11 @@ export const FanNavbar = () => {
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
                     className="flex items-center gap-2 hover:opacity-80 transition-opacity"
                   >
-                    <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-white/10">
+                    <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-white/10 relative">
                       <Image 
-                        src="/assets/athelete_auth.png" 
+                        src={userProfile?.avatarUrl || "/assets/athelete_auth.png"} 
                         alt="Profile" 
-                        width={36} 
-                        height={36} 
+                        fill
                         className="object-cover"
                       />
                     </div>
@@ -106,8 +140,8 @@ export const FanNavbar = () => {
                   {isProfileOpen && (
                     <div className="absolute right-0 mt-3 w-56 bg-[#121212] border border-white/10 rounded-2xl shadow-2xl py-2 z-50">
                       <div className="px-4 py-3 border-b border-white/5 mb-2">
-                        <p className="text-sm font-bold text-white">Jon Kabir</p>
-                        <p className="text-xs text-white/40">jon.kabir@example.com</p>
+                        <p className="text-sm font-bold text-white">{userProfile?.fullName || 'User'}</p>
+                        <p className="text-xs text-white/40">{userProfile?.email || ''}</p>
                       </div>
                       
                       <div className="px-2 space-y-1">
@@ -173,18 +207,17 @@ export const FanNavbar = () => {
           <div className="px-4 py-4 space-y-1">
             {isLoggedIn && (
               <div className="flex items-center gap-3 px-4 py-3 mb-2 border-b border-white/5">
-                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/10">
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/10 relative">
                   <Image 
-                    src="/assets/athelete_auth.png" 
+                    src={userProfile?.avatarUrl || "/assets/athelete_auth.png"} 
                     alt="Profile" 
-                    width={40} 
-                    height={40} 
+                    fill
                     className="object-cover"
                   />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-white">Jon Kabir</p>
-                  <p className="text-xs text-white/40">jon.kabir@example.com</p>
+                  <p className="text-sm font-bold text-white">{userProfile?.fullName || 'User'}</p>
+                  <p className="text-xs text-white/40">{userProfile?.email || ''}</p>
                 </div>
               </div>
             )}

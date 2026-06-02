@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Package, 
@@ -24,7 +24,23 @@ interface AdminLayoutProps {
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const pathname = usePathname();
+  const router = useRouter();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('admin@uag.com');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const email = localStorage.getItem('admin_email');
+      if (email) setAdminEmail(email);
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('adminLoggedIn');
+    localStorage.removeItem('admin_email');
+    router.push('/admin/login');
+  };
 
   const menuItems = [
     { icon: <LayoutDashboard size={20} />, label: 'Overview', href: '/admin/overview' },
@@ -63,7 +79,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         </nav>
 
         <div className="p-4 border-t border-white/5">
-          <button className="flex items-center gap-3 w-full px-4 py-3 text-red-500 hover:bg-red-500/10 rounded-lg transition-all group">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-4 py-3 text-red-500 hover:bg-red-500/10 rounded-lg transition-all group"
+          >
             <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span className="text-sm font-bold uppercase tracking-widest">Logout</span>
           </button>
@@ -85,8 +104,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
               className="flex items-center gap-3 group"
             >
               <div className="text-right">
-                <p className="text-sm font-bold text-black">Jon Kabir</p>
-                <p className="text-[10px] text-gray-400 font-medium">Admin</p>
+                <p className="text-sm font-bold text-black">{adminEmail.split('@')[0]}</p>
+                <p className="text-[10px] text-gray-400 font-medium">{adminEmail}</p>
               </div>
               <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-50 group-hover:border-gray-200 transition-all">
                 <Image src="/assets/athelete_auth.png" alt="Admin" width={40} height={40} className="object-cover" />
@@ -103,7 +122,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                       <Image src="/assets/athelete_auth.png" alt="Admin" width={48} height={48} className="object-cover" />
                     </div>
                     <div>
-                      <p className="font-bold text-black">Dr. Jon Kabir</p>
+                      <p className="font-bold text-black">{adminEmail.split('@')[0]}</p>
                       <span className="bg-gray-100 text-[10px] font-bold px-3 py-1 rounded-full text-gray-500 uppercase tracking-tighter">Admin</span>
                     </div>
                   </div>
@@ -128,7 +147,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   </Link>
                 </div>
 
-                <button className="w-full bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all shadow-lg shadow-red-500/20 uppercase tracking-widest text-xs mt-4">
+                <button 
+                  onClick={handleLogout}
+                  className="w-full bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition-all shadow-lg shadow-red-500/20 uppercase tracking-widest text-xs mt-4"
+                >
                   Log out
                 </button>
               </div>

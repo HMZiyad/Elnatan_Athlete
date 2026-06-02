@@ -1,34 +1,68 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AdminInput } from '../../atoms/admin/AdminInput';
 import { AdminButton } from '../../atoms/admin/AdminButton';
+import { apiCall } from '../../../utils/api';
 
 export const AdminLoginForm = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push('/admin/overview');
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await apiCall<{ data: { token: string } }>('/admin/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+
+      localStorage.setItem('admin_token', response.data.token);
+      localStorage.setItem('adminLoggedIn', 'true');
+      localStorage.setItem('admin_email', email);
+      router.push('/admin/overview');
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="w-full">
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs px-4 py-3 rounded-lg mb-6">
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-4">
           <AdminInput 
             label="Email address"
             type="email"
             placeholder="esteban_schiller@gmail.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={loading}
           />
           <AdminInput 
             label="Password"
             type="password"
             placeholder="*********"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             required
+            disabled={loading}
           />
         </div>
 
@@ -48,8 +82,8 @@ export const AdminLoginForm = () => {
           </Link>
         </div>
 
-        <AdminButton type="submit" fullWidth>
-          Sign in
+        <AdminButton type="submit" fullWidth disabled={loading}>
+          {loading ? 'Signing in...' : 'Sign in'}
         </AdminButton>
       </form>
 

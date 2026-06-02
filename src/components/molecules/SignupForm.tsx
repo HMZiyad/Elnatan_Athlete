@@ -7,6 +7,7 @@ import { Bolt, Users, ArrowRight } from 'lucide-react';
 import { RoleCard } from './RoleCard';
 import { Input } from '../atoms/Input';
 import { Button } from '../atoms/Button';
+import { apiCall } from '../../utils/api';
 
 interface SignupFormProps {
   onRoleChange?: (role: 'athlete' | 'fan') => void;
@@ -14,6 +15,11 @@ interface SignupFormProps {
 
 export const SignupForm = ({ onRoleChange }: SignupFormProps) => {
   const [role, setRole] = useState<'athlete' | 'fan'>('athlete');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleRoleSelect = (newRole: 'athlete' | 'fan') => {
@@ -23,14 +29,56 @@ export const SignupForm = ({ onRoleChange }: SignupFormProps) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (role === 'fan') {
-      router.push('/fan');
-    } else {
-      router.push('/athlete/onboarding');
+    setError('');
+    setLoading(true);
+
+    // Clear old session elements
+    localStorage.removeItem('uag_token');
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userRole');
+
+    try {
+      // 1. Register user
+      await apiCall('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          full_name: fullName,
+          email: email,
+          password: password,
+          role: role,
+        }),
+      });
+
+      if (role === 'fan') {
+        router.push('/login?registered=true');
+      } else {
+        // 2. Automatically log in to retrieve token
+        const loginRes = await apiCall<{ data: { token: string; user: { role: string } } }>('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ email, password, role }),
+        });
+
+        localStorage.setItem('uag_token', loginRes.data.token);
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('userRole', loginRes.data.user.role);
+        router.push('/athlete/onboarding');
+      }
+    } catch (err: any) {
+      console.error('Signup error:', err);
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
+
+  React.useEffect(() => {
+    localStorage.removeItem('uag_token');
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('userRole');
+  }, []);
+
 
   return (
     <div className="w-full max-w-md space-y-8">
@@ -82,6 +130,12 @@ export const SignupForm = ({ onRoleChange }: SignupFormProps) => {
           </div>
         </div>
 
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Inputs */}
           <div className="space-y-4">
@@ -89,25 +143,34 @@ export const SignupForm = ({ onRoleChange }: SignupFormProps) => {
               label="Full Name"
               type="text"
               placeholder="Maya Reyes"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
               required
+              disabled={loading}
             />
             <Input 
               label="Email"
               type="email"
               placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={loading}
             />
             <Input 
               label="Password"
               type="password"
               placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
 
           {/* Action */}
-          <Button type="submit" fullWidth className="group uppercase">
-            Join as {role} <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
+          <Button type="submit" fullWidth className="group uppercase" disabled={loading}>
+            {loading ? 'Registering...' : `Join as ${role}`} <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
           </Button>
         </form>
 

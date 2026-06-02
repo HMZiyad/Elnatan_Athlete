@@ -1,48 +1,112 @@
-import React from 'react';
+"use client";
+
+import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '@/components/templates/admin-view/AdminLayout';
 import { AdminStatsCard } from '@/components/molecules/AdminStatsCard';
 import { FileText, Package, Users, DollarSign } from 'lucide-react';
+import { apiCall } from '@/utils/api';
 
 export default function AdminOverviewPage() {
-  const stats = [
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await apiCall<{ success: boolean; data: any }>('/admin/stats');
+        setStats(res.data);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch dashboard stats.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-black mb-4"></div>
+          <p className="text-gray-500 text-sm">Loading overview stats...</p>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <AdminLayout>
+        <div className="p-12 text-center bg-white rounded-3xl border border-gray-100 shadow-sm">
+          <p className="text-red-500 font-bold mb-2">Error Loading Dashboard</p>
+          <p className="text-gray-400 text-xs">{error || 'Unable to retrieve statistics.'}</p>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  const formatRevenue = (val: number) => {
+    if (val >= 1000) {
+      return `$${(val / 1000).toFixed(2)}K`;
+    }
+    return `$${val.toFixed(2)}`;
+  };
+
+  const statCards = [
     { 
       title: 'Total Orders', 
-      value: '125', 
+      value: stats.total_orders.toString(), 
       description: 'All orders placed by customers', 
       icon: <FileText size={24} />, 
       iconColor: 'bg-blue-500' 
     },
     { 
       title: 'Total Products', 
-      value: '34', 
+      value: stats.total_products.toString(), 
       description: 'Products available for customers', 
       icon: <Package size={24} />, 
       iconColor: 'bg-orange-500' 
     },
     { 
-      title: 'Total Customer', 
-      value: '642', 
-      description: 'Customers who placed orders', 
+      title: 'Total Customers', 
+      value: stats.total_customers.toString(), 
+      description: 'Registered fans on the platform', 
       icon: <Users size={24} />, 
       iconColor: 'bg-purple-500' 
     },
     { 
       title: 'Total Revenue', 
-      value: '$82.12K', 
+      value: formatRevenue(stats.total_revenue || 0), 
       description: 'Total revenue generated', 
       icon: <DollarSign size={24} />, 
       iconColor: 'bg-green-500' 
     },
   ];
 
-  const chartData = [
-    { day: 'Mon', value: 22 },
-    { day: 'Tue', value: 28 },
-    { day: 'Wed', value: 20 },
-    { day: 'Thu', value: 25 },
-    { day: 'Fri', value: 34 },
-    { day: 'Sat', value: 18 },
-    { day: 'Sun', value: 26 },
+  const defaultChartData = [
+    { day: 'Mon', value: 0 },
+    { day: 'Tue', value: 0 },
+    { day: 'Wed', value: 0 },
+    { day: 'Thu', value: 0 },
+    { day: 'Fri', value: 0 },
+    { day: 'Sat', value: 0 },
+    { day: 'Sun', value: 0 },
+  ];
+
+  const chartData = stats.weekly_order_chart && stats.weekly_order_chart.length > 0
+    ? stats.weekly_order_chart.map((d: any) => ({ day: d.day, value: d.orders || 0 }))
+    : defaultChartData;
+
+  const maxVal = Math.max(...chartData.map((d: any) => d.value), 10);
+  const yLabels = [
+    maxVal,
+    Math.round(maxVal * 0.8),
+    Math.round(maxVal * 0.6),
+    Math.round(maxVal * 0.4),
+    Math.round(maxVal * 0.2),
+    0
   ];
 
   return (
@@ -56,7 +120,7 @@ export default function AdminOverviewPage() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat, i) => (
+          {statCards.map((stat, i) => (
             <AdminStatsCard key={i} {...stat} />
           ))}
         </div>
@@ -64,7 +128,7 @@ export default function AdminOverviewPage() {
         {/* Chart Section */}
         <div className="bg-white p-10 rounded-3xl border border-gray-100 shadow-sm">
           <div className="flex justify-between items-center mb-12">
-            <h2 className="text-xl font-bold text-black">Total Orders last month</h2>
+            <h2 className="text-xl font-bold text-black">Total Orders last 7 days</h2>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-gray-500"></div>
               <span className="text-sm font-medium text-gray-500">Orders</span>
@@ -74,12 +138,9 @@ export default function AdminOverviewPage() {
           <div className="relative h-80 flex items-end justify-between px-10 border-b border-gray-50 pb-8">
             {/* Y-Axis labels */}
             <div className="absolute left-0 inset-y-0 flex flex-col justify-between text-[10px] font-bold text-gray-300 py-8">
-              <span>40</span>
-              <span>32</span>
-              <span>24</span>
-              <span>16</span>
-              <span>8</span>
-              <span>0</span>
+              {yLabels.map((lbl, idx) => (
+                <span key={idx}>{lbl}</span>
+              ))}
             </div>
 
             {/* Grid lines */}
@@ -90,11 +151,11 @@ export default function AdminOverviewPage() {
             </div>
 
             {/* Bars */}
-            {chartData.map((data, i) => (
+            {chartData.map((data: any, i: number) => (
               <div key={i} className="flex flex-col items-center gap-4 group relative z-10">
                 <div 
                   className="w-10 bg-gray-600 rounded-lg hover:bg-black transition-all cursor-pointer relative"
-                  style={{ height: `${(data.value / 40) * 100}%` }}
+                  style={{ height: `${(data.value / maxVal) * 100}%` }}
                 >
                   {/* Tooltip */}
                   <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">

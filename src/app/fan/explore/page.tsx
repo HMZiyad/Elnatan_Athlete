@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowUpRight, MapPin, Search, SlidersHorizontal, Tag, BadgeCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FanNavbar } from '@/components/organisms/fan/FanNavbar';
 import { FanFooter } from '@/components/organisms/fan/FanFooter';
+import { apiCall } from '@/utils/api';
 
 /* ───────────────────────── DATA ───────────────────────── */
 
@@ -19,88 +20,62 @@ const categories = [
   'Skateboarding',
 ];
 
-const athletes = [
-  {
-    name: 'Elara Vance',
-    sport: 'Sprinting',
-    location: 'Los Angeles, CA',
-    votes: '42.8K',
-    rank: 1,
-    image: '/assets/athlete_sprinter.png',
-    verified: true,
-  },
-  {
-    name: 'Jaxon Reed',
-    sport: 'Basketball',
-    location: 'Brooklyn, NY',
-    votes: '31.2K',
-    rank: 2,
-    image: '/assets/athlete_basketball.png',
-    verified: true,
-  },
-  {
-    name: 'Mia Soto',
-    sport: 'MMA',
-    location: 'Miami, FL',
-    votes: '28.5K',
-    rank: 3,
-    image: '/assets/athlete_mma.png',
-    verified: true,
-  },
-  {
-    name: 'Tyrese Hill',
-    sport: 'Football',
-    location: 'Austin, TX',
-    votes: '19.2K',
-    rank: 4,
-    image: '/assets/athlete_track.png',
-    verified: true,
-  },
-  {
-    name: 'Elara Vance',
-    sport: 'Sprinting',
-    location: 'Los Angeles, CA',
-    votes: '42.8K',
-    rank: 1,
-    image: '/assets/athlete_sprinter.png',
-    verified: true,
-  },
-  {
-    name: 'Jaxon Reed',
-    sport: 'Basketball',
-    location: 'Brooklyn, NY',
-    votes: '31.2K',
-    rank: 2,
-    image: '/assets/athlete_basketball.png',
-    verified: true,
-  },
-  {
-    name: 'Mia Soto',
-    sport: 'MMA',
-    location: 'Miami, FL',
-    votes: '28.5K',
-    rank: 3,
-    image: '/assets/athlete_mma.png',
-    verified: true,
-  },
-  {
-    name: 'Tyrese Hill',
-    sport: 'Football',
-    location: 'Austin, TX',
-    votes: '19.2K',
-    rank: 4,
-    image: '/assets/athlete_track.png',
-    verified: true,
-  },
-];
-
 /* ───────────────────────── COMPONENT ───────────────────────── */
 
 export default function ExplorePage() {
   const [activeCategory, setActiveCategory] = useState('All Items');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = 3;
+  const [athletes, setAthletes] = useState<any[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Fetch approved athletes list dynamically
+  useEffect(() => {
+    let active = true;
+    const fetchTimer = setTimeout(async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const sportParam = activeCategory === 'All Items' ? '' : activeCategory;
+        const res = await apiCall<{ data: any[]; meta?: { total: number; per_page: number; page: number } }>(
+          `/athletes?sport=${encodeURIComponent(sportParam)}&search=${encodeURIComponent(searchQuery)}&page=${currentPage}&per_page=8`
+        );
+        if (active) {
+          setAthletes(res.data || []);
+          if (res.meta) {
+            setTotalPages(Math.ceil(res.meta.total / res.meta.per_page) || 1);
+          } else {
+            setTotalPages(1);
+          }
+        }
+      } catch (err: any) {
+        if (active) {
+          setError(err.message || 'Failed to fetch athletes');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }, 300); // 300ms search debounce
+
+    return () => {
+      active = false;
+      clearTimeout(fetchTimer);
+    };
+  }, [activeCategory, searchQuery, currentPage]);
+
+  const handleCategoryChange = (cat: string) => {
+    setActiveCategory(cat);
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1);
+  };
 
   return (
     <div className="min-h-screen bg-dark-400">
@@ -126,7 +101,7 @@ export default function ExplorePage() {
             {categories.map((cat) => (
               <button
                 key={cat}
-                onClick={() => setActiveCategory(cat)}
+                onClick={() => handleCategoryChange(cat)}
                 className={`px-4 py-2 text-xs font-medium rounded-full border transition-all ${
                   activeCategory === cat
                     ? 'border-white text-white bg-white/5'
@@ -144,9 +119,9 @@ export default function ExplorePage() {
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
               <input
                 type="text"
-                placeholder="Search item"
+                placeholder="Search athlete..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-9 pr-4 py-2 w-48 sm:w-56 text-sm bg-dark-200 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-white/25 transition-all"
               />
             </div>
@@ -157,100 +132,129 @@ export default function ExplorePage() {
         </div>
 
         {/* ─── ATHLETES GRID ─── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          {athletes.map((athlete, index) => (
-            <Link
-              href={`/fan/athlete/${index + 1}`}
-              key={`${athlete.name}-${index}`}
-              className="group bg-dark-200 border border-white/5 rounded-2xl overflow-hidden hover:border-white/15 transition-all block"
-            >
-              {/* Image area */}
-              <div className="relative aspect-[4/5] overflow-hidden">
-                <Image
-                  src={athlete.image}
-                  alt={athlete.name}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                {/* Gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-white mb-4"></div>
+            <p className="text-white/60 text-sm">Loading athletes...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-20 border border-white/5 rounded-2xl bg-dark-200/50">
+            <p className="text-red-400 mb-2">Error loading athletes</p>
+            <p className="text-white/40 text-xs">{error}</p>
+          </div>
+        ) : athletes.length === 0 ? (
+          <div className="text-center py-20 border border-white/5 rounded-2xl bg-dark-200/50">
+            <p className="text-white/60 mb-2 font-medium">No athletes found</p>
+            <p className="text-white/40 text-xs">Try adjusting your filters or search keywords.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+            {athletes.map((athlete) => {
+              const avatar = athlete.avatar_url
+                ? (athlete.avatar_url.startsWith('http') ? athlete.avatar_url : `http://localhost:8080${athlete.avatar_url}`)
+                : '/assets/athelete_auth.png';
 
-                {/* Sport tag - top left */}
-                <div className="absolute top-4 left-4 flex items-center gap-1.5 bg-dark-400/70 backdrop-blur-sm px-3 py-1.5 rounded-full">
-                  <Tag size={12} className="text-white/60" />
-                  <span className="text-xs font-medium text-white/80">{athlete.sport}</span>
-                </div>
+              const votesFormatted = athlete.total_votes >= 1000
+                ? `${(athlete.total_votes / 1000).toFixed(1)}K`
+                : athlete.total_votes.toString();
 
-                {/* Rank badge - top right */}
-                <div className="absolute top-4 right-4 text-sm font-bold text-white/80">
-                  #{athlete.rank}
-                </div>
-
-                {/* Name & Location - bottom */}
-                <div className="absolute bottom-4 left-4 right-4">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <h3 className="text-base font-bold font-heading uppercase tracking-tight">
-                      {athlete.name}
-                    </h3>
-                    {athlete.verified && (
-                      <BadgeCheck size={16} className="text-blue-400 fill-blue-400/20" />
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-white/50">
-                    <MapPin size={12} />
-                    <span>{athlete.location}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Info area */}
-              <div className="p-4">
-                <div className="w-full h-px bg-white/10 mb-3" />
-                <div className="mb-3">
-                  <p className="text-[10px] uppercase tracking-widest text-white/40 mb-0.5">Vote</p>
-                  <p className="text-lg font-bold">{athlete.votes}</p>
-                </div>
-                <div
-                  className="flex items-center justify-between text-[10px] uppercase tracking-widest text-white/40 font-bold group-hover:text-white transition-colors"
+              return (
+                <Link
+                  href={`/fan/athlete/${athlete.id}`}
+                  key={athlete.id}
+                  className="group bg-dark-200 border border-white/5 rounded-2xl overflow-hidden hover:border-white/15 transition-all block"
                 >
-                  <span>View Details</span>
-                  <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+                  {/* Image area */}
+                  <div className="relative aspect-[4/5] overflow-hidden">
+                    <Image
+                      src={avatar}
+                      alt={athlete.full_name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+
+                    {/* Sport tag - top left */}
+                    <div className="absolute top-4 left-4 flex items-center gap-1.5 bg-dark-400/70 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                      <Tag size={12} className="text-white/60" />
+                      <span className="text-xs font-medium text-white/80">{athlete.sport}</span>
+                    </div>
+
+                    {/* Rank badge - top right */}
+                    <div className="absolute top-4 right-4 text-sm font-bold text-white/80">
+                      {athlete.rank ? `#${athlete.rank}` : `--`}
+                    </div>
+
+                    {/* Name & Location - bottom */}
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <h3 className="text-base font-bold font-heading uppercase tracking-tight">
+                          {athlete.full_name}
+                        </h3>
+                        {athlete.verified && (
+                          <BadgeCheck size={16} className="text-blue-400 fill-blue-400/20" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-white/50">
+                        <MapPin size={12} />
+                        <span>{athlete.location || 'USA'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Info area */}
+                  <div className="p-4">
+                    <div className="w-full h-px bg-white/10 mb-3" />
+                    <div className="mb-3">
+                      <p className="text-[10px] uppercase tracking-widest text-white/40 mb-0.5">Vote</p>
+                      <p className="text-lg font-bold">{votesFormatted}</p>
+                    </div>
+                    <div
+                      className="flex items-center justify-between text-[10px] uppercase tracking-widest text-white/40 font-bold group-hover:text-white transition-colors"
+                    >
+                      <span>View Details</span>
+                      <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         {/* ─── PAGINATION ─── */}
-        <div className="flex items-center justify-center gap-2">
-          <button
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-            className="p-2 text-white/40 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          {[1, 2, 3].map((page) => (
+        {!loading && !error && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2">
             <button
-              key={page}
-              onClick={() => setCurrentPage(page)}
-              className={`w-9 h-9 text-sm font-medium rounded-lg transition-all ${
-                currentPage === page
-                  ? 'bg-white text-black'
-                  : 'text-white/50 border border-white/10 hover:border-white/30 hover:text-white'
-              }`}
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              className="p-2 text-white/40 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
-              {page}
+              <ChevronLeft size={18} />
             </button>
-          ))}
-          <button
-            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage === totalPages}
-            className="p-2 text-white/40 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
+            {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-9 h-9 text-sm font-medium rounded-lg transition-all ${
+                  currentPage === page
+                    ? 'bg-white text-black'
+                    : 'text-white/50 border border-white/10 hover:border-white/30 hover:text-white'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 text-white/40 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        )}
       </div>
 
       <FanFooter />

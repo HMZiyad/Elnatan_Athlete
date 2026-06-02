@@ -5,6 +5,7 @@ import { LayoutDashboard, Wallet, LogOut, Bell, ChevronDown, User, MapPin } from
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { apiCall } from '@/utils/api';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -14,19 +15,50 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const pathname = usePathname();
   const router = useRouter();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<{ fullName: string; email: string; avatarUrl?: string | null } | null>(null);
 
   useEffect(() => {
     const authState = localStorage.getItem('isLoggedIn');
-    if (authState !== 'true') {
+    const token = localStorage.getItem('uag_token');
+    const loggedIn = authState === 'true' && !!token;
+    if (!loggedIn) {
       router.push('/login');
+      return;
     }
+
+    const fetchDashboardProfile = async () => {
+      try {
+        const role = localStorage.getItem('userRole');
+        if (role === 'athlete') {
+          const res = await apiCall<{ data: { full_name: string; email: string; avatar_url?: string | null } }>('/athletes/me/profile');
+          setUserProfile({
+            fullName: res.data.full_name,
+            email: res.data.email,
+            avatarUrl: res.data.avatar_url,
+          });
+        } else {
+          const res = await apiCall<{ data: { first_name: string; last_name: string; email: string; avatar_url?: string | null } }>('/fans/me/profile');
+          setUserProfile({
+            fullName: `${res.data.first_name} ${res.data.last_name}`,
+            email: res.data.email,
+            avatarUrl: res.data.avatar_url,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch dashboard profile:', err);
+      }
+    };
+    fetchDashboardProfile();
   }, [pathname, router]);
 
   const handleLogout = () => {
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userRole');
+    localStorage.removeItem('uag_token');
+    setUserProfile(null);
     router.push('/login');
   };
+
 
   const isActive = (path: string) => pathname.startsWith(path);
 
@@ -96,11 +128,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               onClick={() => setIsProfileOpen(!isProfileOpen)}
             >
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold">Maya Reyes</p>
-                <p className="text-[10px] text-white/40 uppercase tracking-widest">Athlete</p>
+                <p className="text-sm font-bold">{userProfile?.fullName || 'User'}</p>
+                <p className="text-[10px] text-white/40 uppercase tracking-widest">
+                  {typeof window !== 'undefined' ? localStorage.getItem('userRole') || 'User' : 'User'}
+                </p>
               </div>
               <div className="relative w-10 h-10 rounded-full overflow-hidden border border-white/10 group-hover:border-white/30 transition-all">
-                <Image src="/assets/athlete_mma.png" alt="Profile" fill className="object-cover" />
+                <Image src={userProfile?.avatarUrl || "/assets/athlete_mma.png"} alt="Profile" fill className="object-cover" />
               </div>
               <ChevronDown size={16} className={`text-white/40 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
             </div>
@@ -109,8 +143,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             {isProfileOpen && (
               <div className="absolute right-0 mt-3 w-56 bg-[#121212] border border-white/10 rounded-2xl shadow-2xl py-2 z-50">
                 <div className="px-4 py-3 border-b border-white/5 mb-2">
-                  <p className="text-sm font-bold text-white">Maya Reyes</p>
-                  <p className="text-xs text-white/40">maya.reyes@example.com</p>
+                  <p className="text-sm font-bold text-white">{userProfile?.fullName || 'User'}</p>
+                  <p className="text-xs text-white/40">{userProfile?.email || ''}</p>
                 </div>
                 
                 <div className="px-2 space-y-1">
