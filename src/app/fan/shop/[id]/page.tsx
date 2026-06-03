@@ -1,42 +1,19 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Star, Minus, Plus, ThumbsUp, ThumbsDown, ChevronDown, ShoppingCart } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { Star, Minus, Plus, ThumbsUp, ThumbsDown, ChevronDown, ShoppingCart, Loader2 } from 'lucide-react';
 import { FanNavbar } from '@/components/organisms/fan/FanNavbar';
 import { FanFooter } from '@/components/organisms/fan/FanFooter';
+import { apiCall } from '@/utils/api';
 
-const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-const colors = [
-  { id: 'navy', hex: '#1e3a8a' },
-  { id: 'beige', hex: '#d6d3d1' },
-  { id: 'purple', hex: '#7e22ce' },
-];
+// Removed static sizes and colors array; they will be dynamic
 
-const reviews = [
-  {
-    id: 1,
-    author: 'William Davis',
-    avatar: '/assets/fetured_athlete.png',
-    rating: 5,
-    text: 'Absolutely love this TShirt! The feels soft and premium, and it fits perfectly. I wear it everywhere great quality for the price!',
-  },
-  {
-    id: 2,
-    author: 'Lucas Kie',
-    avatar: '/assets/athlete_basketball.png',
-    rating: 4,
-    text: 'Excellent craftsmanship! Fabric quality is really good. Perfect for daily wear. Looks even better in person.',
-  },
-  {
-    id: 3,
-    author: 'Lien jual',
-    avatar: '/assets/athlete_track.png',
-    rating: 5,
-    text: 'Great value for money. The tshirt is warm and looks classy. I ordered my usual size and it fits well.',
-  },
-];
+import { useRouter } from 'next/navigation';
+
+// Removed static reviews array
 
 const similarProducts = [
   {
@@ -74,17 +51,127 @@ const similarProducts = [
 ];
 
 export default function SingleProductPage() {
+  const router = useRouter();
+  const params = useParams();
+  const id = params?.id as string;
+  const [product, setProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [reviewsList, setReviewsList] = useState<any[]>([]);
+
   const [activeImage, setActiveImage] = useState('/assets/tshirt.png');
-  const [selectedSize, setSelectedSize] = useState('XS');
-  const [selectedColor, setSelectedColor] = useState('navy');
+  const [selectedSize, setSelectedSize] = useState('');
+  const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details');
 
-  const thumbnails = [
-    '/assets/tshirt.png',
-    '/assets/product_sweatshirt.png',
-    '/assets/product_vest.png',
-  ];
+  const [newReviewText, setNewReviewText] = useState('');
+  const [newReviewRating, setNewReviewRating] = useState(5);
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    const fetchProduct = async () => {
+      setLoading(true);
+      try {
+        const res = await apiCall<{ data: any }>(`/products/${id}`);
+        if (res.data) {
+          setProduct(res.data);
+          if (res.data.image_url) {
+            const url = res.data.image_url.startsWith('http') ? res.data.image_url : `http://localhost:8080${res.data.image_url}`;
+            setActiveImage(url);
+          }
+          if (res.data.sizes && res.data.sizes.length > 0) setSelectedSize(res.data.sizes[0]);
+          if (res.data.colors && res.data.colors.length > 0) setSelectedColor(res.data.colors[0]);
+        }
+        
+        const reviewsRes = await apiCall<{ data: any[] }>(`/products/${id}/reviews`);
+        const fetchedReviews = reviewsRes.data || [];
+        setReviewsList(fetchedReviews);
+        
+        try {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            const user = JSON.parse(userStr);
+            const myReview = fetchedReviews.find((r: any) => r.user_id === user.id);
+            if (myReview) {
+              setNewReviewRating(myReview.rating || 5);
+              setNewReviewText(myReview.comment || '');
+            }
+          }
+        } catch (_) {}
+      } catch (err) {
+        console.error('Failed to fetch product details', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
+  }, [id]);
+
+  const handleAddToCart = async (buyNow = false) => {
+    try {
+      await apiCall('/cart', {
+        method: 'POST',
+        body: JSON.stringify({ product_id: id, quantity, size: selectedSize, color: selectedColor })
+      });
+      if (buyNow) {
+        router.push('/fan/cart');
+      } else {
+        alert('Added to cart!');
+      }
+    } catch (err) {
+      console.error('Failed to add to cart', err);
+      alert('Failed to add to cart. Are you logged in?');
+    }
+  };
+
+  const submitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newReviewText.trim()) return;
+    setSubmittingReview(true);
+    try {
+      const res = await apiCall<{ data: { review: any } }>('/products/' + id + '/reviews', {
+        method: 'POST',
+        body: JSON.stringify({ rating: newReviewRating, comment: newReviewText })
+      });
+      setReviewsList([res.data.review, ...reviewsList.filter(r => r.user_id !== res.data.review.user_id)]);
+      setNewReviewText('');
+      setNewReviewRating(5);
+    } catch (err: any) {
+      console.error('Failed to submit review', err);
+      alert(err.message || 'Failed to submit review.');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const thumbnails = product?.image_url 
+    ? [product.image_url.startsWith('http') ? product.image_url : `http://localhost:8080${product.image_url}`] 
+    : ['/assets/tshirt.png'];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-dark-400 flex flex-col">
+        <FanNavbar />
+        <main className="flex-1 w-full mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 py-20 flex justify-center items-center">
+          <Loader2 className="animate-spin text-white/50" size={48} />
+        </main>
+        <FanFooter />
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-dark-400 flex flex-col">
+        <FanNavbar />
+        <main className="flex-1 w-full mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 py-20 flex justify-center items-center">
+          <p className="text-white/50">Product not found.</p>
+        </main>
+        <FanFooter />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-dark-400 flex flex-col">
@@ -118,69 +205,78 @@ export default function SingleProductPage() {
 
           {/* Details Right */}
           <div className="w-full lg:w-1/2">
-            <div className="text-[#22c55e] text-sm font-medium mb-4">In Stock</div>
+            <div className="text-[#22c55e] text-sm font-medium mb-4">{product.inventory > 0 ? 'In Stock' : 'Out of Stock'}</div>
             <h1 className="text-3xl md:text-4xl font-bold font-heading uppercase tracking-tight mb-2">
-              UNDERRATED PREMIUM T-SHIRT
+              {product.name}
             </h1>
-            <p className="text-sm text-white/70 mb-4 font-medium">Drop Shoulder T-shirt</p>
+            <p className="text-sm text-white/70 mb-4 font-medium">{product.category}</p>
             <p className="text-sm text-white/50 leading-relaxed mb-6 max-w-md">
-              A stylish Drop Shoulder T-shirt designed to elevate your look with a modern fit and bold, confident feel.
+              A stylish {product.category} designed to elevate your look with a modern fit and bold, confident feel.
             </p>
 
             <div className="flex items-end gap-3 mb-4">
-              <span className="text-3xl font-bold">${(280.00).toFixed(2)}</span>
-              <span className="text-lg text-white/30 line-through mb-1">${(390.00).toFixed(2)}</span>
+              <span className="text-3xl font-bold">${(product.price || 0).toFixed(2)}</span>
+              {product.original_price && (
+                <span className="text-lg text-white/30 line-through mb-1">${(product.original_price).toFixed(2)}</span>
+              )}
             </div>
 
             <div className="flex items-center gap-2 mb-8">
-              <span className="text-sm font-bold">5.0</span>
+              <span className="text-sm font-bold">{(product.rating || 5).toFixed(1)}</span>
               <div className="flex items-center gap-1">
                 {[...Array(5)].map((_, i) => (
-                  <Star key={i} size={14} className="text-[#d97706] fill-[#d97706]" />
+                  <Star key={i} size={14} className={i < (product.rating || 5) ? 'text-[#d97706] fill-[#d97706]' : 'text-white/20'} />
                 ))}
               </div>
-              <span className="text-sm text-[#3b82f6] hover:underline cursor-pointer">(245 Review)</span>
+              <span className="text-sm text-[#3b82f6] hover:underline cursor-pointer">({product.review_count || 0} Review{product.review_count !== 1 ? 's' : ''})</span>
             </div>
 
             <div className="w-full h-px bg-white/10 mb-8" />
 
             <div className="flex flex-wrap gap-12 mb-8">
               {/* Size */}
-              <div>
-                <h3 className="text-sm font-medium text-white mb-3">Available Size</h3>
-                <div className="flex flex-wrap gap-2">
-                  {sizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={`w-10 h-10 flex items-center justify-center text-xs font-bold rounded bg-white/5 border ${
-                        selectedSize === size 
-                          ? 'bg-[#3b82f6] text-white border-[#3b82f6]' 
-                          : 'text-white border-white/10 hover:border-white/30'
-                      } transition-all`}
-                    >
-                      {size}
-                    </button>
-                  ))}
+              {product.sizes && product.sizes.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-white mb-3">Available Size</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {product.sizes.map((size: string) => (
+                      <button
+                        key={size}
+                        onClick={() => setSelectedSize(size)}
+                        className={`w-10 h-10 flex items-center justify-center text-xs font-bold rounded bg-white/5 border ${
+                          selectedSize === size 
+                            ? 'bg-[#3b82f6] text-white border-[#3b82f6]' 
+                            : 'text-white border-white/10 hover:border-white/30'
+                        } transition-all`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Color */}
-              <div>
-                <h3 className="text-sm font-medium text-white mb-3">Colors</h3>
-                <div className="flex gap-3">
-                  {colors.map((color) => (
-                    <button
-                      key={color.id}
-                      onClick={() => setSelectedColor(color.id)}
-                      className={`w-8 h-8 rounded border-2 transition-all ${
-                        selectedColor === color.id ? 'border-white scale-110' : 'border-transparent hover:border-white/30'
-                      }`}
-                      style={{ backgroundColor: color.hex }}
-                    />
-                  ))}
+              {product.colors && product.colors.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-white mb-3">Colors</h3>
+                  <div className="flex gap-3">
+                    {product.colors.map((color: string) => (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(color)}
+                        className={`px-3 py-1 text-sm rounded border transition-all ${
+                          selectedColor === color 
+                            ? 'bg-white text-black border-white' 
+                            : 'bg-transparent text-white border-white/20 hover:border-white/50'
+                        }`}
+                      >
+                        {color}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="w-full h-px bg-white/10 mb-8" />
@@ -207,8 +303,17 @@ export default function SingleProductPage() {
                   </button>
                 </div>
                 
-                <button className="flex-1 h-12 bg-white text-black font-bold text-sm uppercase tracking-widest rounded hover:bg-white/90 transition-colors">
+                <button 
+                  onClick={() => handleAddToCart(false)}
+                  className="flex-1 h-12 bg-white text-black font-bold text-sm uppercase tracking-widest rounded hover:bg-white/90 transition-colors"
+                >
                   Add to cart
+                </button>
+                <button 
+                  onClick={() => handleAddToCart(true)}
+                  className="flex-1 h-12 bg-[#3b82f6] text-white font-bold text-sm uppercase tracking-widest rounded hover:bg-[#3b82f6]/90 transition-colors"
+                >
+                  Buy Now
                 </button>
               </div>
             </div>
@@ -248,34 +353,9 @@ export default function SingleProductPage() {
             {activeTab === 'details' && (
               <div className="animate-in fade-in duration-300">
                 <h2 className="text-2xl font-bold font-heading uppercase tracking-tight mb-4">DESCRIPTION</h2>
-                <div className="text-sm text-white/60 leading-relaxed space-y-4 mb-8">
-                  <p>
-                    Step into your bold side with the Urban Classic Premium Cotton T-Shirt — designed for those who think differently and express it fearlessly. This piece blends everyday comfort with standout design, making it perfect for creative minds and streetwear lovers.
-                  </p>
-                  <p>
-                    Whether you're out with friends or deep in your own creative zone, this t-shirt keeps you comfortable while letting your style speak loud and clear.
-                  </p>
+                <div className="text-sm text-white/60 leading-relaxed space-y-4 mb-8 whitespace-pre-wrap">
+                  {product.description || 'No description available for this product.'}
                 </div>
-
-                <h3 className="text-base font-bold mb-3 text-white/90">Why You'll Love It</h3>
-                <ul className="list-disc list-inside text-sm text-white/60 space-y-2 mb-8 ml-2">
-                  <li>Soft, breathable premium cotton for all-day comfort</li>
-                  <li>Relaxed fit for a modern streetwear look</li>
-                  <li>Eye-catching graphic design that stands out</li>
-                  <li>Durable print that won't fade easily</li>
-                  <li>Perfect for casual wear, hangouts, or creative sessions</li>
-                </ul>
-
-                <h3 className="text-base font-bold mb-3 text-white/90">Product Details</h3>
-                <ul className="list-disc list-inside text-sm text-white/60 space-y-2 ml-2">
-                  <li>Fabric: 100% Premium Cotton</li>
-                  <li>Fit: Regular / Relaxed Fit</li>
-                  <li>Neck: Round Neck</li>
-                  <li>Sleeve: Short Sleeve</li>
-                  <li>Print Type: High-quality graphic print</li>
-                  <li>Gender: Unisex</li>
-                  <li>Season: All-season wear</li>
-                </ul>
               </div>
             )}
 
@@ -290,34 +370,77 @@ export default function SingleProductPage() {
                   </button>
                 </div>
 
-                <div className="space-y-8">
-                  {reviews.map((review) => (
-                    <div key={review.id} className="flex gap-4">
-                      <div className="relative w-12 h-12 rounded-full overflow-hidden shrink-0 bg-dark-300">
-                        <Image src={review.avatar} alt={review.author} fill className="object-cover" />
+                <div className="space-y-8 mb-12">
+                  {reviewsList.length === 0 ? (
+                    <p className="text-white/50 italic">No reviews yet. Be the first to review this product!</p>
+                  ) : (
+                    reviewsList.map((review: any) => (
+                      <div key={review.id} className="flex gap-4">
+                        <div className="relative w-12 h-12 rounded-full overflow-hidden shrink-0 bg-dark-300 flex items-center justify-center">
+                          {review.user_avatar_url ? (
+                            <Image src={review.user_avatar_url.startsWith('http') ? review.user_avatar_url : `http://localhost:8080${review.user_avatar_url}`} alt={review.user_full_name} fill className="object-cover" />
+                          ) : (
+                            <span className="text-white/50 text-xs">U</span>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-bold text-white mb-1">{review.user_full_name || 'Anonymous'}</h4>
+                          <div className="flex items-center gap-1 mb-2">
+                            {[...Array(5)].map((_, i) => (
+                              <Star 
+                                key={i} 
+                                size={12} 
+                                className={i < review.rating ? 'text-[#d97706] fill-[#d97706]' : 'text-white/20'} 
+                              />
+                            ))}
+                          </div>
+                          <p className="text-sm text-white/60 leading-relaxed mb-3">
+                            {review.comment}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <h4 className="text-sm font-bold text-white mb-1">{review.author}</h4>
-                        <div className="flex items-center gap-1 mb-2">
-                          {[...Array(5)].map((_, i) => (
+                    ))
+                  )}
+                </div>
+
+                <div className="border-t border-white/10 pt-8 mt-8">
+                  <h3 className="text-lg font-bold font-heading uppercase tracking-tight mb-4">Leave a Review</h3>
+                  <form onSubmit={submitReview} className="space-y-4">
+                    <div>
+                      <label className="block text-sm text-white/70 mb-2">Rating</label>
+                      <div className="flex gap-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            type="button"
+                            key={star}
+                            onClick={() => setNewReviewRating(star)}
+                            className="hover:scale-110 transition-transform"
+                          >
                             <Star 
-                              key={i} 
-                              size={12} 
-                              className={i < review.rating ? 'text-[#d97706] fill-[#d97706]' : 'text-white/20'} 
+                              size={24} 
+                              className={star <= newReviewRating ? 'text-[#d97706] fill-[#d97706]' : 'text-white/20'} 
                             />
-                          ))}
-                        </div>
-                        <p className="text-sm text-white/60 leading-relaxed mb-3">
-                          {review.text}
-                        </p>
-                        <div className="flex items-center gap-4 text-xs font-medium text-white/50">
-                          <button className="hover:text-white transition-colors">Reply</button>
-                          <button className="hover:text-white transition-colors flex items-center gap-1.5"><ThumbsUp size={14} /></button>
-                          <button className="hover:text-white transition-colors flex items-center gap-1.5"><ThumbsDown size={14} /></button>
-                        </div>
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  ))}
+                    <div>
+                      <label className="block text-sm text-white/70 mb-2">Review</label>
+                      <textarea
+                        value={newReviewText}
+                        onChange={(e) => setNewReviewText(e.target.value)}
+                        placeholder="What do you think about this product?"
+                        className="w-full bg-dark-300 border border-white/10 rounded-lg p-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 h-24 resize-none"
+                      ></textarea>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={submittingReview || !newReviewText.trim()}
+                      className="px-6 py-2 bg-[#3b82f6] text-white font-bold text-sm rounded-lg hover:bg-[#3b82f6]/90 disabled:opacity-50 transition-colors uppercase"
+                    >
+                      {submittingReview ? 'Submitting...' : 'Submit Review'}
+                    </button>
+                  </form>
                 </div>
               </div>
             )}

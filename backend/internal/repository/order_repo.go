@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -206,16 +207,18 @@ func (r *OrderRepository) ListAllAdmin(ctx context.Context, search, status strin
 	var result []map[string]interface{}
 	for rows.Next() {
 		var (
-			id, orderNumber, customerName, customerEmail, date, status string
-			total                                                        float64
-			itemCount                                                    int
+			id, orderNumber, customerName, customerEmail, status string
+			date                                                 time.Time
+			total                                                float64
+			itemCount                                            int
 		)
 		if err := rows.Scan(&id, &orderNumber, &customerName, &customerEmail, &date, &total, &status, &itemCount); err != nil {
-			continue
+			fmt.Printf("Scan error: %v\n", err)
+			return nil, 0, err
 		}
 		result = append(result, map[string]interface{}{
 			"id": id, "order_number": orderNumber, "customer_name": customerName,
-			"customer_email": customerEmail, "date": date, "total": total,
+			"customer_email": customerEmail, "date": date.Format("2006-01-02"), "total": total,
 			"status": status, "item_count": itemCount,
 		})
 	}

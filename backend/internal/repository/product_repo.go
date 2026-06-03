@@ -44,7 +44,7 @@ func (r *ProductRepository) List(ctx context.Context, category, search string, p
 
 	args = append(args, perPage, offset)
 	rows, err := r.db.Query(ctx, fmt.Sprintf(`
-		SELECT id, name, category, price, original_price, inventory, sizes, colors, image_url, status, rating, review_count, created_at, updated_at
+		SELECT id, name, description, category, price, original_price, inventory, sizes, colors, image_url, status, rating, review_count, created_at, updated_at
 		FROM products %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, where, i, i+1), args...)
 	if err != nil {
 		return nil, 0, err
@@ -54,7 +54,7 @@ func (r *ProductRepository) List(ctx context.Context, category, search string, p
 	var products []models.Product
 	for rows.Next() {
 		p := models.Product{}
-		if err := rows.Scan(&p.ID, &p.Name, &p.Category, &p.Price, &p.OriginalPrice, &p.Inventory,
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.Category, &p.Price, &p.OriginalPrice, &p.Inventory,
 			&p.Sizes, &p.Colors, &p.ImageURL, &p.Status, &p.Rating, &p.ReviewCount, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
@@ -66,9 +66,9 @@ func (r *ProductRepository) List(ctx context.Context, category, search string, p
 func (r *ProductRepository) FindByID(ctx context.Context, id uuid.UUID) (*models.Product, error) {
 	p := &models.Product{}
 	err := r.db.QueryRow(ctx, `
-		SELECT id, name, category, price, original_price, inventory, sizes, colors, image_url, status, rating, review_count, created_at, updated_at
+		SELECT id, name, description, category, price, original_price, inventory, sizes, colors, image_url, status, rating, review_count, created_at, updated_at
 		FROM products WHERE id = $1`, id,
-	).Scan(&p.ID, &p.Name, &p.Category, &p.Price, &p.OriginalPrice, &p.Inventory,
+	).Scan(&p.ID, &p.Name, &p.Description, &p.Category, &p.Price, &p.OriginalPrice, &p.Inventory,
 		&p.Sizes, &p.Colors, &p.ImageURL, &p.Status, &p.Rating, &p.ReviewCount, &p.CreatedAt, &p.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -79,20 +79,20 @@ func (r *ProductRepository) FindByID(ctx context.Context, id uuid.UUID) (*models
 func (r *ProductRepository) Create(ctx context.Context, p *models.Product) error {
 	p.ID = uuid.New()
 	return r.db.QueryRow(ctx, `
-		INSERT INTO products (id, name, category, price, original_price, inventory, sizes, colors, image_url)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO products (id, name, description, category, price, original_price, inventory, sizes, colors, image_url)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING status, rating, review_count, created_at, updated_at`,
-		p.ID, p.Name, p.Category, p.Price, p.OriginalPrice, p.Inventory, p.Sizes, p.Colors, p.ImageURL,
+		p.ID, p.Name, p.Description, p.Category, p.Price, p.OriginalPrice, p.Inventory, p.Sizes, p.Colors, p.ImageURL,
 	).Scan(&p.Status, &p.Rating, &p.ReviewCount, &p.CreatedAt, &p.UpdatedAt)
 }
 
 func (r *ProductRepository) Update(ctx context.Context, p *models.Product) error {
 	_, err := r.db.Exec(ctx, `
-		UPDATE products SET name=$1, category=$2, price=$3, original_price=$4, inventory=$5,
-		                    sizes=$6, colors=$7, image_url=$8,
-		                    status=CASE WHEN $5 > 0 THEN 'In Stock'::product_status ELSE 'Out of Stock'::product_status END
-		WHERE id=$9`,
-		p.Name, p.Category, p.Price, p.OriginalPrice, p.Inventory,
+		UPDATE products SET name=$1, description=$2, category=$3, price=$4, original_price=$5, inventory=$6,
+		                    sizes=$7, colors=$8, image_url=$9,
+		                    status=CASE WHEN $6 > 0 THEN 'In Stock'::product_status ELSE 'Out of Stock'::product_status END
+		WHERE id=$10`,
+		p.Name, p.Description, p.Category, p.Price, p.OriginalPrice, p.Inventory,
 		p.Sizes, p.Colors, p.ImageURL, p.ID,
 	)
 	return err
@@ -123,4 +123,77 @@ func (r *ProductRepository) DecrementInventory(ctx context.Context, productID uu
 		return fmt.Errorf("OUT_OF_STOCK")
 	}
 	return nil
+}
+
+func (r *ProductRepository) CreateReview(ctx context.Context, review *models.ProductReview) error {
+	review.ID = uuid.New()
+	
+	// Start a transaction since we need to update the product's average rating as well
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Upsert the review
+	err = tx.QueryRow(ctx, `
+		INSERT INTO product_reviews (id, product_id, user_id, rating, title, comment)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (product_id, user_id) 
+		DO UPDATE SET 
+			rating = EXCLUDED.rating, 
+			title = EXCLUDED.title, 
+			comment = EXCLUDED.comment, 
+			updated_at = NOW()
+		RETURNING id, created_at, updated_at
+	`, review.ID, review.ProductID, review.UserID, review.Rating, review.Title, review.Comment).Scan(&review.ID, &review.CreatedAt, &review.UpdatedAt)
+	
+	if err != nil {
+		return err
+	}
+
+	// Update the product's review_count and average rating
+	_, err = tx.Exec(ctx, `
+		UPDATE products
+		SET review_count = (SELECT COUNT(*) FROM product_reviews WHERE product_id = $1),
+		    rating = (SELECT COALESCE(AVG(rating), 0) FROM product_reviews WHERE product_id = $1)
+		WHERE id = $1
+	`, review.ProductID)
+	
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *ProductRepository) ListReviews(ctx context.Context, productID uuid.UUID) ([]models.ProductReview, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT r.id, r.product_id, r.user_id, r.rating, r.title, r.comment, r.created_at, r.updated_at,
+		       u.full_name, u.avatar_url
+		FROM product_reviews r
+		JOIN users u ON r.user_id = u.id
+		WHERE r.product_id = $1
+		ORDER BY r.created_at DESC
+	`, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var reviews []models.ProductReview
+	for rows.Next() {
+		var rev models.ProductReview
+		if err := rows.Scan(
+			&rev.ID, &rev.ProductID, &rev.UserID, &rev.Rating, &rev.Title, &rev.Comment, &rev.CreatedAt, &rev.UpdatedAt,
+			&rev.UserFullName, &rev.UserAvatarURL,
+		); err != nil {
+			return nil, err
+		}
+		reviews = append(reviews, rev)
+	}
+	if reviews == nil {
+		reviews = []models.ProductReview{}
+	}
+	return reviews, nil
 }

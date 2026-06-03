@@ -6,26 +6,12 @@ import Link from 'next/link';
 import { ArrowUpRight, Star, Gamepad2, Handshake, Heart, Target, ShoppingCart } from 'lucide-react';
 import { FanNavbar } from '@/components/organisms/fan/FanNavbar';
 import { FanFooter } from '@/components/organisms/fan/FanFooter';
+import { apiCall } from '@/utils/api';
+import { useRouter } from 'next/navigation';
 
 /* ───────────────────────── DATA ───────────────────────── */
 
-const featuredAthletes = [
-  {
-    name: 'Maya Reyes',
-    sport: 'Track & Field',
-    image: '/assets/athlete_track.png',
-  },
-  {
-    name: 'Devon Carter',
-    sport: 'Basketball',
-    image: '/assets/fetured_athlete.png',
-  },
-  {
-    name: 'Layla Okafor',
-    sport: 'Climbing & MMA',
-    image: '/assets/athlete_mma.png',
-  },
-];
+// Top 3 athletes will be fetched dynamically from API
 
 const platformFeatures = [
   {
@@ -50,44 +36,46 @@ const platformFeatures = [
   },
 ];
 
-const featuredProducts = [
-  {
-    name: 'Underrated Premium T-Shirt',
-    image: '/assets/tshirt.png',
-    price: 280.0,
-    originalPrice: 390.0,
-    rating: 4.5,
-    reviews: 29,
-  },
-  {
-    name: 'Underrated Premium Sweatshirt',
-    image: '/assets/product_sweatshirt.png',
-    price: 159.99,
-    originalPrice: 290.0,
-    rating: 4.5,
-    reviews: 29,
-  },
-  {
-    name: 'Underrated Premium Vest',
-    image: '/assets/product_vest.png',
-    price: 280.0,
-    originalPrice: 390.0,
-    rating: 4.5,
-    reviews: 29,
-  },
-  {
-    name: 'Underrated Premium HAT',
-    image: '/assets/product_hat.png',
-    price: 280.0,
-    originalPrice: 390.0,
-    rating: 4.5,
-    reviews: 29,
-  },
-];
+// Featured products will be fetched dynamically from API
 
 /* ───────────────────────── COMPONENT ───────────────────────── */
 
 export default function FanHomePage() {
+  const router = useRouter();
+  const [featuredAthletes, setFeaturedAthletes] = React.useState<any[]>([]);
+  const [featuredProducts, setFeaturedProducts] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    // Fetch Top 3 Athletes
+    apiCall<{ data: { top_three: any[] } }>('/athletes/leaderboard?page=1&per_page=3')
+      .then((res) => setFeaturedAthletes(res.data?.top_three || []))
+      .catch(console.error);
+
+    // Fetch Recently Added Products (just first page)
+    apiCall<{ data: any[] }>('/products?page=1&per_page=4')
+      .then((res) => setFeaturedProducts(res.data || []))
+      .catch(console.error);
+  }, []);
+
+  const handleAddToCart = async (e: React.MouseEvent, product: any, buyNow: boolean = false) => {
+    e.preventDefault();
+    try {
+      const size = product.sizes?.length > 0 ? product.sizes[0] : '';
+      const color = product.colors?.length > 0 ? product.colors[0] : '';
+      await apiCall('/cart', {
+        method: 'POST',
+        body: JSON.stringify({ product_id: product.id, quantity: 1, size, color })
+      });
+      if (buyNow) {
+        router.push('/fan/cart');
+      } else {
+        alert('Added to cart!');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to add to cart');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-dark-400">
       <FanNavbar />
@@ -141,32 +129,41 @@ export default function FanHomePage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featuredAthletes.map((athlete) => (
-            <Link
-              key={athlete.name}
-              href="/fan/explore"
-              className="group relative bg-dark-200 rounded-2xl overflow-hidden aspect-[3/4] hover:ring-1 hover:ring-white/20 transition-all"
-            >
-              <Image
-                src={athlete.image}
-                alt={athlete.name}
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-6 flex items-end justify-between">
-                <div>
-                  <h3 className="text-xl font-bold font-heading uppercase tracking-tight">
-                    {athlete.name}
-                  </h3>
-                  <p className="text-sm text-white/50 mt-1">{athlete.sport}</p>
+          {featuredAthletes.length === 0 ? (
+            <div className="col-span-full py-10 text-center text-white/40 uppercase tracking-widest text-xs font-bold">
+              Loading featured athletes...
+            </div>
+          ) : (
+            featuredAthletes.map((athlete, idx) => (
+              <Link
+                key={athlete.athlete_id || idx}
+                href={`/fan/athlete/${athlete.athlete_id}`}
+                className="group relative bg-dark-200 rounded-2xl overflow-hidden aspect-[3/4] hover:ring-1 hover:ring-white/20 transition-all"
+              >
+                <Image
+                  src={athlete.avatar_url || "/assets/athlete_track.png"}
+                  alt={athlete.full_name || "Athlete"}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                <div className="absolute top-4 right-4 z-20 bg-dark-400/90 backdrop-blur-md px-3 py-1.5 rounded-md border border-[#d97706]/40 shadow-lg">
+                  <span className="text-xs font-bold text-white">{athlete.total_votes || 0} Votes</span>
                 </div>
-                <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <ArrowUpRight size={18} className="text-black" />
+                <div className="absolute bottom-0 left-0 right-0 p-6 flex items-end justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold font-heading uppercase tracking-tight">
+                      {athlete.full_name || athlete.username}
+                    </h3>
+                    <p className="text-sm text-white/50 mt-1">{athlete.sport}</p>
+                  </div>
+                  <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <ArrowUpRight size={18} className="text-black" />
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            ))
+          )}
         </div>
       </section>
 
@@ -214,52 +211,59 @@ export default function FanHomePage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featuredProducts.map((product, index) => (
-            <Link
-              key={product.name}
-              href={`/fan/shop/${index + 1}`}
-              className="group bg-dark-200 border border-white/5 rounded-2xl overflow-hidden hover:border-white/15 transition-all block"
-            >
-              <div className="relative aspect-square bg-dark-300 overflow-hidden">
-                <Image
-                  src={product.image}
-                  alt={product.name}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-              </div>
-              <div className="p-5">
-                <h3 className="text-sm font-semibold mb-2 truncate">{product.name}</h3>
-                {/* Rating */}
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex items-center gap-0.5">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        size={12}
-                        className={i < Math.floor(product.rating) ? 'text-amber-400 fill-amber-400' : 'text-white/20'}
-                      />
-                    ))}
+          {featuredProducts.length === 0 ? (
+            <div className="col-span-full py-10 text-center text-white/40 uppercase tracking-widest text-xs font-bold">
+              Loading featured products...
+            </div>
+          ) : (
+            featuredProducts.map((product) => (
+              <Link
+                key={product.id}
+                href={`/fan/shop/${product.id}`}
+                className="group bg-dark-200 border border-white/5 rounded-2xl overflow-hidden hover:border-white/15 transition-all block flex flex-col"
+              >
+                <div className="relative aspect-square bg-dark-300 overflow-hidden shrink-0">
+                  <Image
+                    src={product.image_url || "/assets/tshirt.png"}
+                    alt={product.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                </div>
+                <div className="p-5 flex flex-col flex-1 justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2 truncate" title={product.name}>{product.name}</h3>
+                    {/* Rating */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-0.5">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            size={12}
+                            className={i < (product.average_rating || 0) ? 'text-amber-400 fill-amber-400' : 'text-white/20'}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs text-white/40">({product.total_reviews || 0} Reviews)</span>
+                    </div>
+                    {/* Price */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-lg font-bold">${Number(product.price).toFixed(2)}</span>
+                    </div>
                   </div>
-                  <span className="text-xs text-white/40">({product.reviews} Reviews)</span>
+                  {/* Buttons */}
+                  <div className="flex gap-2 mt-auto">
+                    <button onClick={(e) => handleAddToCart(e, product, false)} className="flex-1 px-3 py-2 text-[11px] sm:text-xs font-medium border border-white/20 rounded-lg text-white/80 hover:bg-white/5 transition-all flex items-center justify-center gap-1">
+                      <ShoppingCart size={13} /> Add
+                    </button>
+                    <button onClick={(e) => handleAddToCart(e, product, true)} className="flex-1 px-3 py-2 text-[11px] sm:text-xs font-medium bg-white text-black rounded-lg hover:bg-white/90 transition-all text-center">
+                      Buy Now
+                    </button>
+                  </div>
                 </div>
-                {/* Price */}
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-lg font-bold">${product.price.toFixed(2)}</span>
-                  <span className="text-sm text-white/30 line-through">${product.originalPrice.toFixed(2)}</span>
-                </div>
-                {/* Buttons */}
-                <div className="flex gap-2">
-                  <button onClick={(e) => e.preventDefault()} className="flex-1 px-3 py-2 text-xs font-medium border border-white/20 rounded-lg text-white/80 hover:bg-white/5 transition-all flex items-center justify-center gap-1.5">
-                    <ShoppingCart size={13} /> Add to Cart
-                  </button>
-                  <button onClick={(e) => e.preventDefault()} className="flex-1 px-3 py-2 text-xs font-medium bg-white text-black rounded-lg hover:bg-white/90 transition-all">
-                    Buy Now
-                  </button>
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            ))
+          )}
         </div>
       </section>
 

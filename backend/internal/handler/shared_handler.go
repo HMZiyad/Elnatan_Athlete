@@ -224,6 +224,63 @@ func (h *ProductHandler) Get(w http.ResponseWriter, r *http.Request) {
 	utils.Success(w, p)
 }
 
+func (h *ProductHandler) AddReview(w http.ResponseWriter, r *http.Request) {
+	userID := getUID(r)
+	productID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		utils.BadRequest(w, "INVALID_ID", "Invalid product ID")
+		return
+	}
+
+	var req struct {
+		Rating  int     `json:"rating" validate:"required,min=1,max=5"`
+		Title   *string `json:"title"`
+		Comment *string `json:"comment"`
+	}
+	if err := utils.Decode(r, &req); err != nil {
+		utils.BadRequest(w, "VALIDATION_ERROR", "Invalid body")
+		return
+	}
+	if req.Rating < 1 || req.Rating > 5 {
+		utils.BadRequest(w, "VALIDATION_ERROR", "Rating must be between 1 and 5")
+		return
+	}
+
+	review := &models.ProductReview{
+		ProductID: productID,
+		UserID:    userID,
+		Rating:    req.Rating,
+		Title:     req.Title,
+		Comment:   req.Comment,
+	}
+
+	if err := h.productRepo.CreateReview(r.Context(), review); err != nil {
+		utils.InternalError(w)
+		return
+	}
+
+	utils.Created(w, map[string]interface{}{
+		"message": "Review added successfully.",
+		"review":  review,
+	})
+}
+
+func (h *ProductHandler) ListReviews(w http.ResponseWriter, r *http.Request) {
+	productID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		utils.BadRequest(w, "INVALID_ID", "Invalid product ID")
+		return
+	}
+
+	reviews, err := h.productRepo.ListReviews(r.Context(), productID)
+	if err != nil {
+		utils.InternalError(w)
+		return
+	}
+
+	utils.Success(w, reviews)
+}
+
 // ─── Cart Handler ─────────────────────────────────────────────
 
 type CartHandler struct {

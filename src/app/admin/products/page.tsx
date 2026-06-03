@@ -26,6 +26,7 @@ export default function AdminProductsPage() {
 
   // Form Fields
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [price, setPrice] = useState('');
   const [inventory, setInventory] = useState('');
@@ -92,6 +93,7 @@ export default function AdminProductsPage() {
   // Open modal helpers
   const openAddModal = () => {
     setName('');
+    setDescription('');
     setCategory('');
     setPrice('');
     setInventory('');
@@ -104,6 +106,7 @@ export default function AdminProductsPage() {
   const openEditModal = (product: any) => {
     setSelectedProduct(product);
     setName(product.name);
+    setDescription(product.description || '');
     setCategory(product.category);
     setPrice(product.price.toString());
     setInventory(product.inventory.toString());
@@ -122,6 +125,7 @@ export default function AdminProductsPage() {
     try {
       const payload = {
         name,
+        description,
         category,
         price: parseFloat(price),
         inventory: parseInt(inventory) || 0,
@@ -156,6 +160,7 @@ export default function AdminProductsPage() {
     try {
       const payload = {
         name,
+        description,
         category,
         price: parseFloat(price),
         inventory: parseInt(inventory) || 0,
@@ -219,7 +224,7 @@ export default function AdminProductsPage() {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full bg-white border border-gray-100 rounded-xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-black/20 focus:shadow-lg transition-all"
+              className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-black/20 focus:shadow-lg transition-all"
             />
           </div>
         </div>
@@ -323,7 +328,17 @@ export default function AdminProductsPage() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
-                      className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
+                      className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Description</p>
+                    <textarea 
+                      placeholder="Product description (supports multiple lines)" 
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={4}
+                      className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
                     />
                   </div>
                   
@@ -336,7 +351,7 @@ export default function AdminProductsPage() {
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
                         required
-                        className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
+                        className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
                       />
                     </div>
                     <div className="space-y-2">
@@ -348,7 +363,7 @@ export default function AdminProductsPage() {
                         value={price}
                         onChange={(e) => setPrice(e.target.value)}
                         required
-                        className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
+                        className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
                       />
                     </div>
                     <div className="space-y-2">
@@ -358,7 +373,7 @@ export default function AdminProductsPage() {
                         placeholder="50" 
                         value={inventory}
                         onChange={(e) => setInventory(e.target.value)}
-                        className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
+                        className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
                       />
                     </div>
                     <div className="space-y-2">
@@ -368,7 +383,7 @@ export default function AdminProductsPage() {
                         placeholder="S, M, L, XL" 
                         value={sizes}
                         onChange={(e) => setSizes(e.target.value)}
-                        className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
+                        className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
                       />
                     </div>
                   </div>
@@ -462,7 +477,17 @@ export default function AdminProductsPage() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
-                      className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
+                      className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Description</p>
+                    <textarea 
+                      placeholder="Product description (supports multiple lines)" 
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={4}
+                      className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
                     />
                   </div>
                   
@@ -475,7 +500,7 @@ export default function AdminProductsPage() {
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
                         required
-                        className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
+                        className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
                       />
                     </div>
                     <div className="space-y-2">
@@ -487,7 +512,7 @@ export default function AdminProductsPage() {
                         value={price}
                         onChange={(e) => setPrice(e.target.value)}
                         required
-                        className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
+                        className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
                       />
                     </div>
                     <div className="space-y-2 col-span-2">
@@ -497,7 +522,7 @@ export default function AdminProductsPage() {
                         placeholder="Stock" 
                         value={inventory}
                         onChange={(e) => setInventory(e.target.value)}
-                        className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
+                        className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" 
                       />
                     </div>
                   </div>

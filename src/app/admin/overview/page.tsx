@@ -60,28 +60,36 @@ export default function AdminOverviewPage() {
       value: stats.total_orders.toString(), 
       description: 'All orders placed by customers', 
       icon: <FileText size={24} />, 
-      iconColor: 'bg-blue-500' 
+      iconBgClass: 'bg-blue-500/10',
+      iconTextClass: 'text-blue-500',
+      blurClass: 'bg-blue-500/20'
     },
     { 
       title: 'Total Products', 
       value: stats.total_products.toString(), 
       description: 'Products available for customers', 
       icon: <Package size={24} />, 
-      iconColor: 'bg-orange-500' 
+      iconBgClass: 'bg-orange-500/10',
+      iconTextClass: 'text-orange-500',
+      blurClass: 'bg-orange-500/20'
     },
     { 
       title: 'Total Customers', 
       value: stats.total_customers.toString(), 
       description: 'Registered fans on the platform', 
       icon: <Users size={24} />, 
-      iconColor: 'bg-purple-500' 
+      iconBgClass: 'bg-purple-500/10',
+      iconTextClass: 'text-purple-500',
+      blurClass: 'bg-purple-500/20'
     },
     { 
       title: 'Total Revenue', 
       value: formatRevenue(stats.total_revenue || 0), 
       description: 'Total revenue generated', 
       icon: <DollarSign size={24} />, 
-      iconColor: 'bg-green-500' 
+      iconBgClass: 'bg-green-500/10',
+      iconTextClass: 'text-green-500',
+      blurClass: 'bg-green-500/20'
     },
   ];
 
@@ -119,7 +127,7 @@ export default function AdminOverviewPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           {statCards.map((stat, i) => (
             <AdminStatsCard key={i} {...stat} />
           ))}

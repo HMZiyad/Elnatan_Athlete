@@ -216,6 +216,7 @@ type PaymentMethod struct {
 type Product struct {
 	ID            uuid.UUID `json:"id"`
 	Name          string    `json:"name"`
+	Description   *string   `json:"description"`
 	Category      string    `json:"category"`
 	Price         float64   `json:"price"`
 	OriginalPrice *float64  `json:"original_price"`
@@ -228,6 +229,21 @@ type Product struct {
 	ReviewCount   int       `json:"review_count"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type ProductReview struct {
+	ID        uuid.UUID `json:"id"`
+	ProductID uuid.UUID `json:"product_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Rating    int       `json:"rating"`
+	Title     *string   `json:"title"`
+	Comment   *string   `json:"comment"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	// Joined fields
+	UserFullName  string  `json:"user_full_name,omitempty"`
+	UserAvatarURL *string `json:"user_avatar_url,omitempty"`
 }
 
 // ─── CART ─────────────────────────────────────────────────────

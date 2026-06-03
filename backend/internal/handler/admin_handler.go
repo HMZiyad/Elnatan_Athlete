@@ -236,6 +236,7 @@ func (h *AdminHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 func (h *AdminHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name          string   `json:"name" validate:"required"`
+		Description   *string  `json:"description"`
 		Category      string   `json:"category" validate:"required"`
 		Price         float64  `json:"price" validate:"required,gt=0"`
 		OriginalPrice float64  `json:"original_price"`
@@ -250,7 +251,7 @@ func (h *AdminHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p := &models.Product{
-		Name: req.Name, Category: req.Category, Price: req.Price,
+		Name: req.Name, Description: req.Description, Category: req.Category, Price: req.Price,
 		Inventory: req.Inventory, Sizes: req.Sizes, Colors: req.Colors,
 	}
 	if req.OriginalPrice > 0 {
@@ -298,6 +299,9 @@ func (h *AdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 	if v, ok := req["inventory"].(float64); ok {
 		existing.Inventory = int(v)
+	}
+	if v, ok := req["description"].(string); ok {
+		existing.Description = &v
 	}
 
 	if err := h.productRepo.Update(r.Context(), existing); err != nil {
@@ -564,3 +568,14 @@ func (h *AdminHandler) AddressBook(userRepo *repository.UserRepository) *Address
 // ─── Helpers ──────────────────────────────────────────────────
 
 // generateOTP is implemented in shared_handler.go as GenerateOTP()
+
+// ─── Notifications ──────────────────────────────────────────────
+
+func (h *AdminHandler) GetNotifications(w http.ResponseWriter, r *http.Request) {
+	notifications, err := h.adminRepo.GetRecentNotifications(r.Context())
+	if err != nil {
+		utils.InternalError(w)
+		return
+	}
+	utils.Success(w, notifications)
+}
