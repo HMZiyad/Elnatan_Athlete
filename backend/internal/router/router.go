@@ -92,6 +92,7 @@ func New(
 			r.Use(adminMW)
 
 			r.Get("/stats", adminH.Stats)
+			r.Get("/notifications", adminH.GetNotifications)
 
 			// Products
 			r.Get("/products", adminH.ListProducts)
@@ -124,6 +125,8 @@ func New(
 		// ── Public: Products ────────────────────────────────────
 		r.Get("/products", productH.List)
 		r.Get("/products/{id}", productH.Get)
+		r.Get("/products/{id}/reviews", productH.ListReviews)
+		r.With(authMW).Post("/products/{id}/reviews", productH.AddReview)
 
 		// ── Authenticated: Voting (fans only) ──────────────────
 		r.With(authMW).With(requireFan).Post("/athletes/{id}/vote", athleteH.CastVote)

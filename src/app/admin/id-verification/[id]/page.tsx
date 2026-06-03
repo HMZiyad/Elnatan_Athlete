@@ -164,7 +164,7 @@ export default function AdminVerificationDetailPage() {
               placeholder="Provide reasons for approval or decline details..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-white border border-gray-100 rounded-xl p-4 text-sm focus:outline-none focus:border-black/20"
+              className="w-full text-black bg-white border border-gray-100 rounded-xl p-4 text-sm focus:outline-none focus:border-black/20"
             />
           </div>
 

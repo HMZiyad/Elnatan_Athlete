@@ -74,15 +74,15 @@ function SettingsContent() {
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Full Name</p>
-                    <input type="text" placeholder="John Smith" className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" />
+                    <input type="text" placeholder="John Smith" className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" />
                   </div>
                   <div className="space-y-2">
                     <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Email Address</p>
-                    <input type="email" placeholder="smith@hospital.com" className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" />
+                    <input type="email" placeholder="smith@hospital.com" className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" />
                   </div>
                   <div className="space-y-2">
                     <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Phone Number</p>
-                    <input type="text" placeholder="smith@hospital.com" className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" />
+                    <input type="text" placeholder="smith@hospital.com" className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" />
                   </div>
                 </div>
 
@@ -103,15 +103,15 @@ function SettingsContent() {
                 <div className="space-y-6">
                   <div className="space-y-2">
                     <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Current Password</p>
-                    <input type="password" placeholder="Enter your current password" className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" />
+                    <input type="password" placeholder="Enter your current password" className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" />
                   </div>
                   <div className="space-y-2">
                     <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">New Password</p>
-                    <input type="password" placeholder="Enter your new password" className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" />
+                    <input type="password" placeholder="Enter your new password" className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" />
                   </div>
                   <div className="space-y-2">
                     <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Confirm New Password</p>
-                    <input type="password" placeholder="Enter new password" className="w-full bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" />
+                    <input type="password" placeholder="Enter new password" className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 px-6 text-sm focus:outline-none focus:border-black/20" />
                   </div>
                 </div>
 

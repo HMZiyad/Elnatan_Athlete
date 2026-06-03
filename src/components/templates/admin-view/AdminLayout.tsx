@@ -15,8 +15,12 @@ import {
   ChevronDown,
   X,
   Settings,
-  User
+  User,
+  Clock,
+  PackageCheck,
+  UserPlus
 } from 'lucide-react';
+import { apiCall } from '@/utils/api';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -27,13 +31,52 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const router = useRouter();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [adminEmail, setAdminEmail] = useState('admin@uag.com');
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const email = localStorage.getItem('admin_email');
       if (email) setAdminEmail(email);
     }
+    fetchNotifications();
   }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await apiCall<{ data: any[] }>('/admin/notifications');
+      setNotifications(res.data || []);
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch(type) {
+      case 'new_order': return <ShoppingCart size={16} className="text-blue-500" />;
+      case 'delivered_order': return <PackageCheck size={16} className="text-green-500" />;
+      case 'athlete_application': return <UserPlus size={16} className="text-amber-500" />;
+      default: return <Bell size={16} className="text-gray-400" />;
+    }
+  };
+
+  const getNotificationLink = (type: string) => {
+    if (type.includes('order')) return '/admin/orders';
+    if (type === 'athlete_application') return '/admin/id-verification';
+    return '/admin/overview';
+  };
+
+  const timeAgo = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('admin_token');
@@ -93,10 +136,56 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       <div className="flex-1 ml-64 flex flex-col">
         {/* Header */}
         <header className="h-20 bg-white border-b border-gray-100 flex items-center justify-end px-12 gap-8 sticky top-0 z-20">
-          <button className="relative p-2 text-gray-400 hover:text-black transition-colors">
-            <Bell size={20} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full border-2 border-white"></span>
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+              className="relative p-2 text-gray-400 hover:text-black transition-colors"
+            >
+              <Bell size={20} />
+              {notifications.length > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+              )}
+            </button>
+
+            {isNotificationsOpen && (
+              <div className="absolute top-full right-0 mt-4 w-80 bg-white rounded-2xl shadow-2xl shadow-black/5 border border-gray-100 z-50 overflow-hidden flex flex-col max-h-[400px]">
+                <div className="p-4 border-b border-gray-50 flex items-center justify-between bg-gray-50/50 shrink-0">
+                  <h3 className="font-bold text-sm">Notifications</h3>
+                  <span className="text-xs font-bold text-gray-400 bg-gray-200 px-2 py-0.5 rounded-full">{notifications.length}</span>
+                </div>
+                
+                <div className="overflow-y-auto flex-1">
+                  {notifications.length === 0 ? (
+                    <div className="p-8 text-center text-sm text-gray-400">
+                      No new notifications
+                    </div>
+                  ) : (
+                    <div className="flex flex-col">
+                      {notifications.map((notif, idx) => (
+                        <Link 
+                          key={notif.id || idx}
+                          href={getNotificationLink(notif.type)}
+                          onClick={() => setIsNotificationsOpen(false)}
+                          className="flex gap-3 p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors group"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center shrink-0">
+                            {getNotificationIcon(notif.type)}
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-700 font-medium leading-snug group-hover:text-black">{notif.title}</p>
+                            <div className="flex items-center gap-1 mt-1 text-gray-400">
+                              <Clock size={12} />
+                              <span className="text-xs">{timeAgo(notif.timestamp)}</span>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="relative">
             <button 

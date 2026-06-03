@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -197,4 +199,102 @@ func (r *AdminRepository) ListCustomers(ctx context.Context, search string, page
 		})
 	}
 	return result, total, nil
+}
+
+// Notifications
+func (r *AdminRepository) GetRecentNotifications(ctx context.Context) ([]map[string]interface{}, error) {
+	var notifications []map[string]interface{}
+
+	// 1. New Orders
+	rowsOrders, err := r.db.Query(ctx, `
+		SELECT o.id, o.order_number, u.full_name, o.created_at
+		FROM orders o
+		JOIN users u ON o.user_id = u.id
+		WHERE o.status != 'Delivered' AND o.status != 'Cancelled'
+		ORDER BY o.created_at DESC LIMIT 5
+	`)
+	if err == nil {
+		defer rowsOrders.Close()
+		for rowsOrders.Next() {
+			var id, orderNum, fullName string
+			var createdAt time.Time
+			if err := rowsOrders.Scan(&id, &orderNum, &fullName, &createdAt); err == nil {
+				notifications = append(notifications, map[string]interface{}{
+					"id":        id,
+					"type":      "new_order",
+					"title":     fmt.Sprintf("New Order #%s by %s", orderNum, fullName),
+					"timestamp": createdAt,
+					"read":      false,
+				})
+			}
+		}
+	}
+
+	// 2. Delivered Orders
+	rowsDelivered, err := r.db.Query(ctx, `
+		SELECT o.id, o.order_number, u.full_name, o.updated_at
+		FROM orders o
+		JOIN users u ON o.user_id = u.id
+		WHERE o.status = 'Delivered'
+		ORDER BY o.updated_at DESC LIMIT 5
+	`)
+	if err == nil {
+		defer rowsDelivered.Close()
+		for rowsDelivered.Next() {
+			var id, orderNum, fullName string
+			var updatedAt time.Time
+			if err := rowsDelivered.Scan(&id, &orderNum, &fullName, &updatedAt); err == nil {
+				notifications = append(notifications, map[string]interface{}{
+					"id":        id,
+					"type":      "delivered_order",
+					"title":     fmt.Sprintf("Order #%s by %s was delivered", orderNum, fullName),
+					"timestamp": updatedAt,
+					"read":      false,
+				})
+			}
+		}
+	}
+
+	// 3. Pending Athletes
+	rowsAthletes, err := r.db.Query(ctx, `
+		SELECT ap.id, u.full_name, ap.created_at
+		FROM athlete_profiles ap
+		JOIN users u ON ap.user_id = u.id
+		WHERE ap.verification_status = 'pending'
+		ORDER BY ap.created_at DESC LIMIT 5
+	`)
+	if err == nil {
+		defer rowsAthletes.Close()
+		for rowsAthletes.Next() {
+			var id, fullName string
+			var createdAt time.Time
+			if err := rowsAthletes.Scan(&id, &fullName, &createdAt); err == nil {
+				notifications = append(notifications, map[string]interface{}{
+					"id":        id,
+					"type":      "athlete_application",
+					"title":     fmt.Sprintf("New athlete application: %s", fullName),
+					"timestamp": createdAt,
+					"read":      false,
+				})
+			}
+		}
+	}
+
+	if len(notifications) == 0 {
+		return []map[string]interface{}{}, nil
+	}
+
+	// Sort notifications by timestamp descending
+	sort.Slice(notifications, func(i, j int) bool {
+		tI := notifications[i]["timestamp"].(time.Time)
+		tJ := notifications[j]["timestamp"].(time.Time)
+		return tI.After(tJ)
+	})
+
+	// Return top 10
+	if len(notifications) > 10 {
+		notifications = notifications[:10]
+	}
+
+	return notifications, nil
 }

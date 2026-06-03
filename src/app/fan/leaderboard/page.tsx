@@ -2,12 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowUp, ArrowDown, Minus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FanNavbar } from '@/components/organisms/fan/FanNavbar';
 import { FanFooter } from '@/components/organisms/fan/FanFooter';
 import { apiCall } from '../../../utils/api';
 
 export default function LeaderboardPage() {
+  const router = useRouter();
   const [topThree, setTopThree] = useState<any[]>([]);
   const [tableData, setTableData] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -74,24 +77,24 @@ export default function LeaderboardPage() {
             {/* ─── TOP 3 PODIUM ─── */}
             <div className="flex flex-col md:flex-row items-start justify-center gap-5 md:gap-8 mt-12 mb-20 max-w-5xl mx-auto">
               {/* Rank 2 */}
-              <div className="w-full md:w-[280px] lg:w-[320px] order-2 md:order-1 relative rounded-2xl overflow-visible md:mt-28">
-                <div className="relative rounded-2xl overflow-hidden h-[380px] md:h-[420px] border border-[#d97706]/30 hover:border-[#d97706]/50 transition-all bg-dark-300">
+              <Link href={second?.athlete_id ? `/fan/athlete/${second.athlete_id}` : '#'} className="block w-full md:w-[280px] lg:w-[320px] order-2 md:order-1 relative rounded-2xl overflow-visible md:mt-28 group">
+                <div className="relative rounded-2xl overflow-hidden h-[380px] md:h-[420px] border border-[#d97706]/30 group-hover:border-[#d97706]/60 transition-all bg-dark-300">
                   <Image 
                     src={second?.avatar_url || "/assets/athlete_track.png"} 
                     alt={second?.full_name || "Rank 2"} 
                     fill 
-                    className="object-cover grayscale-[40%]" 
+                    className="object-cover grayscale-[40%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-500" 
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
 
                   {/* Name & sport */}
                   <div className="absolute bottom-6 left-5 z-10">
-                    <h3 className="text-xl font-bold font-heading uppercase tracking-tight">{second?.full_name || "Position 2"}</h3>
+                    <h3 className="text-xl font-bold font-heading uppercase tracking-tight group-hover:text-[#d97706] transition-colors">{second?.full_name || "Position 2"}</h3>
                     <p className="text-sm text-white/60 mt-1">{second?.sport || "TBD"}</p>
                   </div>
 
                   {/* Rank number */}
-                  <div className="absolute bottom-[-0.5rem] right-3 text-[8rem] md:text-[9rem] font-bold font-heading leading-none text-transparent [-webkit-text-stroke:2px_rgba(255,255,255,0.6)] select-none pointer-events-none">
+                  <div className="absolute bottom-[-0.5rem] right-3 text-[8rem] md:text-[9rem] font-bold font-heading leading-none text-transparent [-webkit-text-stroke:2px_rgba(255,255,255,0.6)] select-none pointer-events-none group-hover:[-webkit-text-stroke:2px_rgba(217,119,6,0.6)] transition-all">
                     2
                   </div>
                 </div>
@@ -99,27 +102,27 @@ export default function LeaderboardPage() {
                 <div className="absolute -top-3 -left-3 z-20 bg-dark-400/90 backdrop-blur-md px-3 py-1.5 rounded-md border border-[#d97706]/30 shadow-lg">
                   <span className="text-sm font-bold text-white">{second?.total_votes || 0} Votes</span>
                 </div>
-              </div>
+              </Link>
 
               {/* Rank 1 */}
-              <div className="w-full md:w-[320px] lg:w-[360px] order-1 md:order-2 relative rounded-2xl overflow-visible">
-                <div className="relative rounded-2xl overflow-hidden h-[420px] md:h-[480px] border border-[#d97706]/40 hover:border-[#d97706]/60 transition-all shadow-[0_0_40px_rgba(217,119,6,0.1)] bg-dark-300">
+              <Link href={first?.athlete_id ? `/fan/athlete/${first.athlete_id}` : '#'} className="block w-full md:w-[320px] lg:w-[360px] order-1 md:order-2 relative rounded-2xl overflow-visible group">
+                <div className="relative rounded-2xl overflow-hidden h-[420px] md:h-[480px] border border-[#d97706]/40 group-hover:border-[#d97706] transition-all shadow-[0_0_40px_rgba(217,119,6,0.1)] group-hover:shadow-[0_0_40px_rgba(217,119,6,0.4)] bg-dark-300">
                   <Image 
                     src={first?.avatar_url || "/assets/fetured_athlete.png"} 
                     alt={first?.full_name || "Rank 1"} 
                     fill 
-                    className="object-cover" 
+                    className="object-cover group-hover:scale-105 transition-all duration-500" 
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
 
                   {/* Name & sport */}
                   <div className="absolute bottom-6 left-5 z-10">
-                    <h3 className="text-2xl font-bold font-heading uppercase tracking-tight">{first?.full_name || "Position 1"}</h3>
+                    <h3 className="text-2xl font-bold font-heading uppercase tracking-tight group-hover:text-[#d97706] transition-colors">{first?.full_name || "Position 1"}</h3>
                     <p className="text-sm text-white/60 mt-1">{first?.sport || "TBD"}</p>
                   </div>
 
                   {/* Rank number */}
-                  <div className="absolute bottom-[-0.5rem] right-3 text-[9rem] md:text-[10rem] font-bold font-heading leading-none text-transparent [-webkit-text-stroke:3px_rgba(255,255,255,0.9)] select-none pointer-events-none drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]">
+                  <div className="absolute bottom-[-0.5rem] right-3 text-[9rem] md:text-[10rem] font-bold font-heading leading-none text-transparent [-webkit-text-stroke:3px_rgba(255,255,255,0.9)] select-none pointer-events-none drop-shadow-[0_0_20px_rgba(255,255,255,0.15)] group-hover:[-webkit-text-stroke:3px_rgba(217,119,6,0.9)] transition-all">
                     1
                   </div>
                 </div>
@@ -127,27 +130,27 @@ export default function LeaderboardPage() {
                 <div className="absolute -top-3 -left-3 z-20 bg-dark-400/90 backdrop-blur-md px-3 py-1.5 rounded-md border border-[#d97706]/40 shadow-lg">
                   <span className="text-sm font-bold text-white">{first?.total_votes || 0} Votes</span>
                 </div>
-              </div>
+              </Link>
 
               {/* Rank 3 */}
-              <div className="w-full md:w-[280px] lg:w-[320px] order-3 relative rounded-2xl overflow-visible md:mt-28">
-                <div className="relative rounded-2xl overflow-hidden h-[380px] md:h-[420px] border border-[#d97706]/30 hover:border-[#d97706]/50 transition-all bg-dark-300">
+              <Link href={third?.athlete_id ? `/fan/athlete/${third.athlete_id}` : '#'} className="block w-full md:w-[280px] lg:w-[320px] order-3 relative rounded-2xl overflow-visible md:mt-28 group">
+                <div className="relative rounded-2xl overflow-hidden h-[380px] md:h-[420px] border border-[#d97706]/30 group-hover:border-[#d97706]/60 transition-all bg-dark-300">
                   <Image 
                     src={third?.avatar_url || "/assets/athlete_mma.png"} 
                     alt={third?.full_name || "Rank 3"} 
                     fill 
-                    className="object-cover grayscale-[40%]" 
+                    className="object-cover grayscale-[40%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-500" 
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
 
                   {/* Name & sport */}
                   <div className="absolute bottom-6 left-5 z-10">
-                    <h3 className="text-xl font-bold font-heading uppercase tracking-tight">{third?.full_name || "Position 3"}</h3>
+                    <h3 className="text-xl font-bold font-heading uppercase tracking-tight group-hover:text-[#d97706] transition-colors">{third?.full_name || "Position 3"}</h3>
                     <p className="text-sm text-white/60 mt-1">{third?.sport || "TBD"}</p>
                   </div>
 
                   {/* Rank number */}
-                  <div className="absolute bottom-[-0.5rem] right-3 text-[8rem] md:text-[9rem] font-bold font-heading leading-none text-transparent [-webkit-text-stroke:2px_rgba(255,255,255,0.6)] select-none pointer-events-none">
+                  <div className="absolute bottom-[-0.5rem] right-3 text-[8rem] md:text-[9rem] font-bold font-heading leading-none text-transparent [-webkit-text-stroke:2px_rgba(255,255,255,0.6)] select-none pointer-events-none group-hover:[-webkit-text-stroke:2px_rgba(217,119,6,0.6)] transition-all">
                     3
                   </div>
                 </div>
@@ -155,7 +158,7 @@ export default function LeaderboardPage() {
                 <div className="absolute -top-3 -left-3 z-20 bg-dark-400/90 backdrop-blur-md px-3 py-1.5 rounded-md border border-[#d97706]/30 shadow-lg">
                   <span className="text-sm font-bold text-white">{third?.total_votes || 0} Votes</span>
                 </div>
-              </div>
+              </Link>
             </div>
 
             {/* ─── LEADERBOARD TABLE ─── */}
@@ -183,7 +186,11 @@ export default function LeaderboardPage() {
                       tableData.map((row, i) => {
                         const rankStr = row.rank < 10 ? `0${row.rank}` : `${row.rank}`;
                         return (
-                          <tr key={row.athlete_id || i} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                          <tr 
+                            key={row.athlete_id || i} 
+                            onClick={() => { if (row.athlete_id) router.push(`/fan/athlete/${row.athlete_id}`); }}
+                            className="border-b border-white/5 hover:bg-white/[0.05] transition-colors cursor-pointer"
+                          >
                             <td className="py-5 px-6 text-xl font-medium text-white/60">{rankStr}</td>
                             <td className="py-5 px-6">
                               <div className="flex items-center gap-3">

@@ -76,7 +76,7 @@ export default function AdminVerificationPage() {
               placeholder="Search by athlete name..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-gray-100 rounded-xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-black/20"
+              className="w-full text-black bg-white border border-gray-100 rounded-xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:border-black/20"
             />
           </div>
         </div>

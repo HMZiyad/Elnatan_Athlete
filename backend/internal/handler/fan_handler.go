@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -45,11 +47,13 @@ func (h *FanHandler) ListFavorites(w http.ResponseWriter, r *http.Request) {
 
 	var result []map[string]interface{}
 	for rows.Next() {
-		var id, fullName, username, sport, location, createdAt string
-		var avatarURL *string
+		var id, fullName string
+		var username, sport, location, avatarURL *string
 		var totalVotes int64
 		var verified bool
+		var createdAt time.Time
 		if err := rows.Scan(&id, &fullName, &username, &sport, &location, &totalVotes, &avatarURL, &verified, &createdAt); err != nil {
+			fmt.Printf("Scan error: %v\n", err)
 			continue
 		}
 		result = append(result, map[string]interface{}{

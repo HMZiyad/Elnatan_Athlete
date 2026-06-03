@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Heart, MapPin, BadgeCheck, Trophy, Medal, Tag, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin, BadgeCheck, Trophy, Medal, Tag, ArrowUpRight, Star } from 'lucide-react';
 import { FanNavbar } from '@/components/organisms/fan/FanNavbar';
 import { FanFooter } from '@/components/organisms/fan/FanFooter';
 import { apiCall } from '@/utils/api';
@@ -23,6 +23,10 @@ export default function AthleteProfilePage() {
   const [voteCount, setVoteCount] = useState(0);
   const [voteSuccessMsg, setVoteSuccessMsg] = useState('');
   const [voteErrorMsg, setVoteErrorMsg] = useState('');
+
+  // Favorites state
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [favoriting, setFavoriting] = useState(false);
 
   // Rising athletes (sidebar/footer recommendation)
   const [risingAthletes, setRisingAthletes] = useState<any[]>([]);
@@ -58,6 +62,16 @@ export default function AthleteProfilePage() {
             setHasVotedToday(statusRes.data.has_voted_today);
           } catch (e) {
             // Ignore error or silent fail for vote-status check (e.g. if expired)
+          }
+          
+          try {
+            const favRes = await apiCall<{ data: any[] }>('/fans/me/favorites');
+            if (favRes.data) {
+              const isFav = favRes.data.some((f: any) => f.athlete_id === id);
+              setIsFavorited(isFav);
+            }
+          } catch (e) {
+            // Ignore error
           }
         }
       } catch (err: any) {
@@ -114,6 +128,40 @@ export default function AthleteProfilePage() {
       setTimeout(() => setVoteErrorMsg(''), 5000);
     } finally {
       setVoting(false);
+    }
+  };
+
+  // Handle toggling favorite
+  const handleToggleFavorite = async () => {
+    if (!isLoggedIn) {
+      router.push(`/login?redirect=/fan/athlete/${id}`);
+      return;
+    }
+
+    setFavoriting(true);
+    try {
+      if (isFavorited) {
+        await apiCall(`/fans/me/favorites/${id}`, { method: 'DELETE' });
+        setIsFavorited(false);
+      } else {
+        try {
+          await apiCall('/fans/me/favorites', {
+            method: 'POST',
+            body: JSON.stringify({ athlete_id: id })
+          });
+          setIsFavorited(true);
+        } catch (addErr: any) {
+          if (addErr.message === 'Already in favorites') {
+            setIsFavorited(true);
+          } else {
+            throw addErr;
+          }
+        }
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to update favorites.');
+    } finally {
+      setFavoriting(false);
     }
   };
 
@@ -223,14 +271,24 @@ export default function AthleteProfilePage() {
               </div>
 
               <div className="flex flex-col gap-2 w-full md:w-auto shrink-0">
-                <button 
-                  onClick={handleVote}
-                  disabled={voting || hasVotedToday}
-                  className="flex items-center justify-center gap-2 px-8 py-4 bg-white text-black disabled:bg-white/40 disabled:text-black/50 disabled:cursor-not-allowed rounded-lg font-bold uppercase tracking-widest text-sm hover:bg-white/90 transition-colors w-full md:w-auto shadow-xl shadow-white/5"
-                >
-                  <Heart size={16} className={`text-red-500 ${hasVotedToday ? 'fill-red-500' : 'fill-transparent'}`} />
-                  {voting ? 'Casting...' : hasVotedToday ? 'Voted Today' : 'Vote'}
-                </button>
+                <div className="flex gap-2 w-full">
+                  <button 
+                    onClick={handleToggleFavorite}
+                    disabled={favoriting}
+                    className="flex items-center justify-center p-4 bg-dark-300 border border-white/20 text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-white/10 transition-colors shadow-xl shadow-white/5"
+                    title={isFavorited ? "Remove from Favorites" : "Add to Favorites"}
+                  >
+                    <Star size={20} className={isFavorited ? 'fill-yellow-500 text-yellow-500' : 'text-white'} />
+                  </button>
+                  <button 
+                    onClick={handleVote}
+                    disabled={voting || hasVotedToday}
+                    className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-white text-black disabled:bg-white/40 disabled:text-black/50 disabled:cursor-not-allowed rounded-lg font-bold uppercase tracking-widest text-sm hover:bg-white/90 transition-colors w-full md:w-auto shadow-xl shadow-white/5"
+                  >
+                    <Heart size={16} className={`text-red-500 ${hasVotedToday ? 'fill-red-500' : 'fill-transparent'}`} />
+                    {voting ? 'Casting...' : hasVotedToday ? 'Voted Today' : 'Vote'}
+                  </button>
+                </div>
                 {voteSuccessMsg && (
                   <p className="text-emerald-400 text-xs font-bold text-center mt-1 animate-pulse">{voteSuccessMsg}</p>
                 )}
