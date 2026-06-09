@@ -20,7 +20,7 @@ export const OnboardingTemplate: React.FC<OnboardingTemplateProps> = ({
       {/* Header */}
       <header className="p-8 flex justify-between items-center border-b border-white/5 bg-black/50 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <Image src="/assets/logo.png" alt="UAG Logo" width={100} height={32} className="object-contain" />
+          <Image src="/assets/logo.png" alt="UAG Logo" width={100} height={32} className="object-contain" priority style={{ width: 'auto', height: 'auto' }} />
         </div>
         
         <div className="text-sm font-medium tracking-tight">

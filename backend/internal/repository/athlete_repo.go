@@ -24,7 +24,7 @@ func (r *AthleteRepository) FindByUserID(ctx context.Context, userID uuid.UUID) 
 	ap := &models.AthleteProfile{}
 	q := `SELECT id, user_id, username, date_of_birth::text, location, sport, level, position,
 	             achievements, bio, highlight_clip_url,
-	             stat_sprint_200m, stat_best_season_year, stat_avg_points, stat_personal_best, recent_achievements,
+	             stats, recent_achievements,
 	             instagram_url, twitter_url, youtube_url, website_url,
 	             id_document_url, verification_status, verified, verified_at, reviewer_notes,
 	             agreed_to_terms, agreed_to_privacy, agreed_to_earnings_policy,
@@ -37,7 +37,7 @@ func (r *AthleteRepository) FindByUserID(ctx context.Context, userID uuid.UUID) 
 	err := r.db.QueryRow(ctx, q, userID).Scan(
 		&ap.ID, &ap.UserID, &ap.Username, &ap.DateOfBirth, &ap.Location, &ap.Sport, &ap.Level, &ap.Position,
 		&ap.Achievements, &ap.Bio, &ap.HighlightClipURL,
-		&ap.StatSprint200m, &ap.StatBestSeasonYear, &ap.StatAvgPoints, &ap.StatPersonalBest, &ap.RecentAchievements,
+		&ap.Stats, &ap.RecentAchievements,
 		&ap.InstagramURL, &ap.TwitterURL, &ap.YoutubeURL, &ap.WebsiteURL,
 		&ap.IDDocumentURL, &ap.VerificationStatus, &ap.Verified, &ap.VerifiedAt, &ap.ReviewerNotes,
 		&ap.AgreedToTerms, &ap.AgreedToPrivacy, &ap.AgreedToEarningsPolicy,
@@ -55,7 +55,7 @@ func (r *AthleteRepository) FindByUserID(ctx context.Context, userID uuid.UUID) 
 func (r *AthleteRepository) FindByID(ctx context.Context, id uuid.UUID) (*models.AthleteProfile, error) {
 	ap := &models.AthleteProfile{}
 	q := `SELECT id, user_id, username, date_of_birth::text, location, sport, level, position,
-	             achievements, bio, highlight_clip_url,
+	             achievements, bio, highlight_clip_url, stats,
 	             instagram_url, twitter_url, youtube_url, website_url,
 	             verification_status, verified, verified_at, reviewer_notes,
 	             onboarding_step, referral_code, referral_link,
@@ -66,7 +66,7 @@ func (r *AthleteRepository) FindByID(ctx context.Context, id uuid.UUID) (*models
 
 	err := r.db.QueryRow(ctx, q, id).Scan(
 		&ap.ID, &ap.UserID, &ap.Username, &ap.DateOfBirth, &ap.Location, &ap.Sport, &ap.Level, &ap.Position,
-		&ap.Achievements, &ap.Bio, &ap.HighlightClipURL,
+		&ap.Achievements, &ap.Bio, &ap.HighlightClipURL, &ap.Stats,
 		&ap.InstagramURL, &ap.TwitterURL, &ap.YoutubeURL, &ap.WebsiteURL,
 		&ap.VerificationStatus, &ap.Verified, &ap.VerifiedAt, &ap.ReviewerNotes,
 		&ap.OnboardingStep, &ap.ReferralCode, &ap.ReferralLink,
@@ -120,14 +120,13 @@ func (r *AthleteRepository) UpdateIdentityStep(ctx context.Context, userID uuid.
 }
 
 func (r *AthleteRepository) UpdateSportStep(ctx context.Context, userID uuid.UUID,
-	sport, level, sprint200m, bestYear, avgPoints, personalBest, achievements string) error {
+	sport, level string, stats map[string]string, achievements string) error {
 	_, err := r.db.Exec(ctx,
 		`UPDATE athlete_profiles
-		 SET sport=$1, level=$2, stat_sprint_200m=$3, stat_best_season_year=$4,
-		     stat_avg_points=$5, stat_personal_best=$6, recent_achievements=$7,
+		 SET sport=$1, level=$2, stats=$3, recent_achievements=$4,
 		     onboarding_step=GREATEST(onboarding_step, 2)
-		 WHERE user_id=$8`,
-		sport, level, sprint200m, bestYear, avgPoints, personalBest, achievements, userID,
+		 WHERE user_id=$5`,
+		sport, level, stats, achievements, userID,
 	)
 	return err
 }
@@ -655,6 +654,24 @@ func (r *AthleteRepository) IncrementProfileViews(ctx context.Context, athleteID
 	)
 }
 
+// ─── Referral ──────────────────────────────────────────────────
+
+
+
+func (r *AthleteRepository) UpdateReferralCode(ctx context.Context, athleteID uuid.UUID, code string) error {
+	_, err := r.db.Exec(ctx, `UPDATE athlete_profiles SET referral_code = $1 WHERE id = $2`, code, athleteID)
+	return err
+}
+
+func (r *AthleteRepository) AddReferralEarnings(ctx context.Context, athleteID uuid.UUID, amount float64) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE athlete_profiles 
+		SET available_balance = available_balance + $1,
+		    lifetime_earned = lifetime_earned + $1
+		WHERE id = $2`, amount, athleteID)
+	return err
+}
+
 // ─── Leaderboard update (called by Asynq worker) ─────────────
 
 func (r *AthleteRepository) UpdateRanksFromVotes(ctx context.Context) error {
@@ -688,4 +705,84 @@ func containsStr(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+func (r *AthleteRepository) UpdateStripeConnectAccountID(ctx context.Context, athleteID uuid.UUID, accountID string) error {
+	_, err := r.db.Exec(ctx, `UPDATE athlete_profiles SET stripe_connect_account_id = $1 WHERE id = $2`, accountID, athleteID)
+	return err
+}
+
+func (r *AthleteRepository) RequestWithdrawal(ctx context.Context, athleteID uuid.UUID, amount float64, bankAccountID *string) (uuid.UUID, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Deduct available balance and add to pending
+	res, err := tx.Exec(ctx, `
+		UPDATE athlete_profiles 
+		SET available_balance = available_balance - $1,
+		    pending_balance = pending_balance + $1
+		WHERE id = $2 AND available_balance >= $1
+	`, amount, athleteID)
+	
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if res.RowsAffected() == 0 {
+		return uuid.Nil, fmt.Errorf("INSUFFICIENT_FUNDS")
+	}
+
+	// 2. Create withdrawal record
+	var withdrawalID uuid.UUID
+	err = tx.QueryRow(ctx, `
+		INSERT INTO withdrawals (athlete_id, amount, bank_account_id, status)
+		VALUES ($1, $2, $3, 'processing')
+		RETURNING id
+	`, athleteID, amount, bankAccountID).Scan(&withdrawalID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
+	}
+
+	return withdrawalID, nil
+}
+
+func (r *AthleteRepository) CompleteWithdrawal(ctx context.Context, withdrawalID uuid.UUID, athleteID uuid.UUID, amount float64) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Update withdrawal status
+	_, err = tx.Exec(ctx, `UPDATE withdrawals SET status = 'completed' WHERE id = $1`, withdrawalID)
+	if err != nil {
+		return err
+	}
+
+	// 2. Decrement pending balance
+	_, err = tx.Exec(ctx, `
+		UPDATE athlete_profiles 
+		SET pending_balance = pending_balance - $1 
+		WHERE id = $2
+	`, amount, athleteID)
+	if err != nil {
+		return err
+	}
+
+	// 3. Log transaction
+	_, err = tx.Exec(ctx, `
+		INSERT INTO athlete_transactions (athlete_id, type, amount, description)
+		VALUES ($1, 'withdrawal', $2, 'Payout to connected bank account')
+	`, athleteID, amount)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }

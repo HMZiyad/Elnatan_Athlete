@@ -43,7 +43,7 @@ export const StripePaymentForm: React.FC<StripePaymentFormProps> = ({ onSuccess,
 
     // 2. Send the token to our backend to attach to the customer
     try {
-      await apiCall('/payment-methods', {
+      await apiCall('/users/me/payment-methods', {
         method: 'POST',
         body: JSON.stringify({ stripe_payment_method_id: paymentMethod.id })
       });

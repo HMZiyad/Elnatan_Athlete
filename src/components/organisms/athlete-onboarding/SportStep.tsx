@@ -8,6 +8,45 @@ interface SportStepProps {
   onContinue: () => void;
 }
 
+const SPORT_STATS_CONFIG: Record<string, { key: string; label: string; placeholder: string }[]> = {
+  'Track & Field': [
+    { key: 'sprint_200m', label: '200m Sprint', placeholder: '22.84s' },
+    { key: 'best_season_year', label: 'Best Season Year', placeholder: '2023' },
+    { key: 'personal_best', label: 'Personal Best', placeholder: '9.8s' },
+    { key: 'rank', label: 'National Rank', placeholder: '1st' }
+  ],
+  'Basketball': [
+    { key: 'points_per_game', label: 'Avg Points / Game', placeholder: '28.4' },
+    { key: 'assists_per_game', label: 'Avg Assists / Game', placeholder: '8.2' },
+    { key: 'rebounds_per_game', label: 'Avg Rebounds / Game', placeholder: '10.5' },
+    { key: 'steals_per_game', label: 'Avg Steals / Game', placeholder: '2.1' },
+  ],
+  'Football': [
+    { key: 'goals', label: 'Goals', placeholder: '12' },
+    { key: 'assists', label: 'Assists', placeholder: '8' },
+    { key: 'pass_completion', label: 'Pass Completion %', placeholder: '85%' },
+    { key: 'tackles', label: 'Tackles', placeholder: '45' },
+  ],
+  'Hockey': [
+    { key: 'goals', label: 'Goals', placeholder: '15' },
+    { key: 'assists', label: 'Assists', placeholder: '20' },
+    { key: 'points', label: 'Total Points', placeholder: '35' },
+    { key: 'plus_minus', label: '+/- Rating', placeholder: '+10' },
+  ],
+  'Baseball': [
+    { key: 'batting_avg', label: 'Batting Average', placeholder: '.310' },
+    { key: 'home_runs', label: 'Home Runs', placeholder: '25' },
+    { key: 'rbis', label: 'RBIs', placeholder: '80' },
+    { key: 'stolen_bases', label: 'Stolen Bases', placeholder: '15' },
+  ],
+  'Other': [
+    { key: 'stat_1', label: 'Primary Stat', placeholder: 'Value' },
+    { key: 'stat_2', label: 'Secondary Stat', placeholder: 'Value' },
+    { key: 'stat_3', label: 'Tertiary Stat', placeholder: 'Value' },
+    { key: 'stat_4', label: 'Quaternary Stat', placeholder: 'Value' },
+  ]
+};
+
 export const SportStep: React.FC<SportStepProps> = ({ onBack, onContinue }) => {
   const sports = ['Track & Field', 'Basketball', 'Hockey', 'Football', 'Baseball', 'Other'];
   const [selectedSport, setSelectedSport] = useState('Track & Field');
@@ -19,13 +58,16 @@ export const SportStep: React.FC<SportStepProps> = ({ onBack, onContinue }) => {
     { title: 'Pro', subtitle: 'Elite Tier' }
   ];
   const [selectedLevel, setSelectedLevel] = useState('Amateur');
-  const [sprint200m, setSprint200m] = useState('');
-  const [bestSeasonYear, setBestSeasonYear] = useState('');
-  const [avgPoints, setAvgPoints] = useState('');
-  const [personalBest, setPersonalBest] = useState('');
+  
+  const [stats, setStats] = useState<Record<string, string>>({});
   const [achievements, setAchievements] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const handleSportChange = (sport: string) => {
+    setSelectedSport(sport);
+    setStats({}); // Clear stats when sport changes
+  };
 
   const handleSubmit = async () => {
     setError('');
@@ -38,12 +80,7 @@ export const SportStep: React.FC<SportStepProps> = ({ onBack, onContinue }) => {
           sport: selectedSport,
           level: selectedLevel,
           recent_achievements: achievements,
-          stats: {
-            sprint_200m: sprint200m,
-            best_season_year: bestSeasonYear,
-            avg_points_per_game: avgPoints,
-            personal_best: personalBest,
-          },
+          stats: stats,
         }),
       });
       onContinue();
@@ -75,7 +112,7 @@ export const SportStep: React.FC<SportStepProps> = ({ onBack, onContinue }) => {
             {sports.map(sport => (
               <button
                 key={sport}
-                onClick={() => setSelectedSport(sport)}
+                onClick={() => handleSportChange(sport)}
                 disabled={submitting}
                 className={`px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
                   selectedSport === sport 
@@ -115,34 +152,16 @@ export const SportStep: React.FC<SportStepProps> = ({ onBack, onContinue }) => {
         <div className="space-y-6">
           <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Top Stats</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input 
-              label="200m Sprint" 
-              placeholder="22.84s" 
-              value={sprint200m}
-              onChange={(e) => setSprint200m(e.target.value)}
-              disabled={submitting}
-            />
-            <Input 
-              label="Best Season Year" 
-              placeholder="2023" 
-              value={bestSeasonYear}
-              onChange={(e) => setBestSeasonYear(e.target.value)}
-              disabled={submitting}
-            />
-            <Input 
-              label="Avg Points / Game" 
-              placeholder="28.4" 
-              value={avgPoints}
-              onChange={(e) => setAvgPoints(e.target.value)}
-              disabled={submitting}
-            />
-            <Input 
-              label="Personal Best" 
-              placeholder="98.2" 
-              value={personalBest}
-              onChange={(e) => setPersonalBest(e.target.value)}
-              disabled={submitting}
-            />
+            {(SPORT_STATS_CONFIG[selectedSport] || SPORT_STATS_CONFIG['Other']).map((statConfig) => (
+              <Input 
+                key={statConfig.key}
+                label={statConfig.label} 
+                placeholder={statConfig.placeholder} 
+                value={stats[statConfig.key] || ''}
+                onChange={(e) => setStats({ ...stats, [statConfig.key]: e.target.value })}
+                disabled={submitting}
+              />
+            ))}
           </div>
         </div>
 

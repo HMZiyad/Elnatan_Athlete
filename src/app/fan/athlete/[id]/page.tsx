@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Heart, MapPin, BadgeCheck, Trophy, Medal, Tag, ArrowUpRight, Star } from 'lucide-react';
 import { FanNavbar } from '@/components/organisms/fan/FanNavbar';
 import { FanFooter } from '@/components/organisms/fan/FanFooter';
+import { SafeVideo } from '@/components/atoms/SafeVideo';
 import { apiCall } from '@/utils/api';
 
 export default function AthleteProfilePage() {
@@ -205,9 +206,12 @@ export default function AthleteProfilePage() {
     '/assets/athlete_track.png',
   ];
 
-  const profilePhotos = athleteData.photos && athleteData.photos.length > 0
-    ? athleteData.photos.map((url: string) => url.startsWith('http') ? url : `http://localhost:8080${url}`)
-    : defaultPhotos;
+  const mediaGallery = athleteData.media_gallery && athleteData.media_gallery.length > 0
+    ? athleteData.media_gallery.map((m: any) => ({
+        ...m,
+        url: m.url.startsWith('http') ? m.url : `http://localhost:8080${m.url}`
+      }))
+    : defaultPhotos.map(url => ({ type: 'photo', url, id: url }));
 
   return (
     <div className="min-h-screen bg-dark-400 flex flex-col">
@@ -337,6 +341,21 @@ export default function AthleteProfilePage() {
           <div className="flex flex-col lg:flex-row gap-16 mb-24">
             {/* Left: Story & Achievements */}
             <div className="w-full lg:w-1/2">
+              {athleteData.highlight_clip_url && (
+                <div className="mb-16">
+                  <h2 className="text-xl md:text-2xl font-bold font-heading uppercase tracking-tight mb-6">
+                    Highlight Clip
+                  </h2>
+                  <div className="relative aspect-video rounded-2xl overflow-hidden border border-white/10 bg-dark-400">
+                    <SafeVideo 
+                      src={athleteData.highlight_clip_url} 
+                      controls 
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="mb-16">
                 <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold mb-3">The Story</p>
                 <h2 className="text-2xl md:text-3xl font-bold font-heading uppercase tracking-tight mb-6">
@@ -368,6 +387,21 @@ export default function AthleteProfilePage() {
                       <span className="text-sm font-medium text-white/90">{athleteData.location || 'USA'}</span>
                     </div>
                   </div>
+                  {athleteData.stats && Object.keys(athleteData.stats).length > 0 && (
+                    <div className="flex flex-col p-4 border border-white/10 rounded-xl bg-[#121212] gap-3">
+                      <span className="text-sm font-bold text-white/50 mb-1">Key Statistics</span>
+                      <div className="grid grid-cols-2 gap-4">
+                        {Object.entries(athleteData.stats).map(([key, value]) => (
+                          <div key={key} className="flex flex-col">
+                            <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-1">
+                              {key.replace(/_/g, ' ')}
+                            </span>
+                            <span className="text-sm font-medium text-white/90">{value as string}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {athleteData.socials && Object.values(athleteData.socials).some(Boolean) && (
                     <div className="flex flex-col p-4 border border-white/10 rounded-xl bg-[#121212] gap-2">
                       <span className="text-sm font-bold text-white/50 mb-1">Social Links</span>
@@ -391,21 +425,31 @@ export default function AthleteProfilePage() {
               </div>
             </div>
 
-            {/* Right: Photos */}
+            {/* Right: Media Gallery */}
             <div className="w-full lg:w-1/2">
               <h2 className="text-xl md:text-2xl font-bold font-heading uppercase tracking-tight mb-6">
-                Photos
+                Media Gallery
               </h2>
               <div className="grid grid-cols-2 gap-4">
-                {profilePhotos.map((src: string, idx: number) => (
-                  <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-white/10 group cursor-pointer">
-                    <Image 
-                      src={src} 
-                      alt={`${athleteData.full_name} gallery ${idx + 1}`} 
-                      fill 
-                      className="object-cover group-hover:scale-105 transition-transform duration-500" 
-                    />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                {mediaGallery.map((media: any, idx: number) => (
+                  <div key={media.id || idx} className="relative aspect-square rounded-2xl overflow-hidden border border-white/10 group bg-dark-400">
+                    {media.type === 'video' ? (
+                      <SafeVideo 
+                        src={media.url} 
+                        controls 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      />
+                    ) : (
+                      <>
+                        <Image 
+                          src={media.url} 
+                          alt={`${athleteData.full_name} gallery ${idx + 1}`} 
+                          fill 
+                          className="object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer" 
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none" />
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

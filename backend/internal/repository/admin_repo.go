@@ -298,3 +298,114 @@ func (r *AdminRepository) GetRecentNotifications(ctx context.Context) ([]map[str
 
 	return notifications, nil
 }
+
+// Withdrawals
+func (r *AdminRepository) ListWithdrawals(ctx context.Context, status string, page, perPage int) ([]models.WithdrawalDetail, int, error) {
+	offset := (page - 1) * perPage
+	where := ""
+	var args []interface{}
+	i := 1
+
+	if status != "" {
+		where = fmt.Sprintf("WHERE w.status = $%d", i)
+		args = append(args, status)
+		i++
+	}
+
+	var total int
+	cArgs := make([]interface{}, len(args))
+	copy(cArgs, args)
+	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM withdrawals w `+where, cArgs...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	args = append(args, perPage, offset)
+	query := fmt.Sprintf(`
+		SELECT w.id, w.athlete_id, u.full_name, w.amount, w.status, w.rejection_reason, w.created_at, w.updated_at
+		FROM withdrawals w
+		JOIN athlete_profiles ap ON w.athlete_id = ap.id
+		JOIN users u ON ap.user_id = u.id
+		%s
+		ORDER BY w.created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, where, i, i+1)
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var result []models.WithdrawalDetail
+	for rows.Next() {
+		var d models.WithdrawalDetail
+		if err := rows.Scan(&d.ID, &d.AthleteID, &d.AthleteName, &d.Amount, &d.Status, &d.RejectionReason, &d.CreatedAt, &d.UpdatedAt); err != nil {
+			continue
+		}
+		result = append(result, d)
+	}
+
+	return result, total, nil
+}
+
+func (r *AdminRepository) GetWithdrawal(ctx context.Context, id uuid.UUID) (*models.WithdrawalDetail, *string, error) {
+	var d models.WithdrawalDetail
+	var apConnectID *string
+	err := r.db.QueryRow(ctx, `
+		SELECT w.id, w.athlete_id, u.full_name, w.amount, w.status, w.rejection_reason, w.created_at, w.updated_at, ap.stripe_connect_account_id
+		FROM withdrawals w
+		JOIN athlete_profiles ap ON w.athlete_id = ap.id
+		JOIN users u ON ap.user_id = u.id
+		WHERE w.id = $1
+	`, id).Scan(&d.ID, &d.AthleteID, &d.AthleteName, &d.Amount, &d.Status, &d.RejectionReason, &d.CreatedAt, &d.UpdatedAt, &apConnectID)
+	
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil, ErrNotFound
+	}
+	return &d, apConnectID, err
+}
+
+func (r *AdminRepository) RejectWithdrawal(ctx context.Context, id uuid.UUID, reason string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var athleteID uuid.UUID
+	var amount float64
+	var status string
+	err = tx.QueryRow(ctx, `
+		SELECT athlete_id, amount, status FROM withdrawals WHERE id = $1 FOR UPDATE
+	`, id).Scan(&athleteID, &amount, &status)
+	if err != nil {
+		return err
+	}
+
+	if status != "processing" {
+		return fmt.Errorf("can only reject processing withdrawals")
+	}
+
+	// Update withdrawal
+	_, err = tx.Exec(ctx, `
+		UPDATE withdrawals 
+		SET status = 'rejected', rejection_reason = $1, updated_at = NOW() 
+		WHERE id = $2
+	`, reason, id)
+	if err != nil {
+		return err
+	}
+
+	// Move funds back from pending to available
+	_, err = tx.Exec(ctx, `
+		UPDATE athlete_profiles 
+		SET pending_balance = pending_balance - $1, available_balance = available_balance + $1 
+		WHERE id = $2
+	`, amount, athleteID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}

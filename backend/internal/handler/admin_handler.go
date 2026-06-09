@@ -579,3 +579,86 @@ func (h *AdminHandler) GetNotifications(w http.ResponseWriter, r *http.Request) 
 	}
 	utils.Success(w, notifications)
 }
+
+// ─── Withdrawals ────────────────────────────────────────────────
+
+func (h *AdminHandler) ListWithdrawals(w http.ResponseWriter, r *http.Request) {
+	status := r.URL.Query().Get("status")
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+
+	withdrawals, total, err := h.adminRepo.ListWithdrawals(r.Context(), status, page, perPage)
+	if err != nil {
+		utils.InternalError(w)
+		return
+	}
+
+	utils.Paginated(w, withdrawals, page, perPage, total)
+}
+
+func (h *AdminHandler) ApproveWithdrawal(w http.ResponseWriter, r *http.Request) {
+	withdrawalID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		utils.BadRequest(w, "INVALID_ID", "Invalid withdrawal ID")
+		return
+	}
+
+	withdrawal, connectID, err := h.adminRepo.GetWithdrawal(r.Context(), withdrawalID)
+	if err != nil {
+		utils.NotFound(w, "WITHDRAWAL")
+		return
+	}
+
+	if withdrawal.Status != "processing" {
+		utils.BadRequest(w, "INVALID_STATUS", "Only processing withdrawals can be approved")
+		return
+	}
+
+	if connectID == nil || *connectID == "" {
+		utils.BadRequest(w, "NO_STRIPE_ACCOUNT", "Athlete does not have a Stripe account connected")
+		return
+	}
+
+	// Enqueue Stripe Transfer task
+	task, _ := tasks.NewProcessWithdrawalTask(tasks.ProcessWithdrawalPayload{
+		WithdrawalID:           withdrawal.ID,
+		AthleteID:              withdrawal.AthleteID,
+		StripeConnectAccountID: *connectID,
+		Amount:                 withdrawal.Amount,
+	})
+	
+	_, err = h.queue.Enqueue(task)
+	if err != nil {
+		utils.InternalError(w)
+		return
+	}
+
+	utils.Success(w, map[string]string{"message": "Withdrawal approved and queued for transfer."})
+}
+
+func (h *AdminHandler) RejectWithdrawal(w http.ResponseWriter, r *http.Request) {
+	withdrawalID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		utils.BadRequest(w, "INVALID_ID", "Invalid withdrawal ID")
+		return
+	}
+
+	var req models.RejectWithdrawalRequest
+	if err := utils.Decode(r, &req); err != nil {
+		utils.BadRequest(w, "VALIDATION_ERROR", "Invalid body")
+		return
+	}
+
+	if err := h.adminRepo.RejectWithdrawal(r.Context(), withdrawalID, req.Reason); err != nil {
+		utils.InternalError(w)
+		return
+	}
+
+	utils.Success(w, map[string]string{"message": "Withdrawal rejected and funds refunded to available balance."})
+}

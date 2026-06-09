@@ -134,12 +134,19 @@
     {
       "name": "🏋️ Athlete Dashboard",
       "item": [
+        { "name": "My Dashboard", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/dashboard" } },
+        { "name": "My Detailed Earnings", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/earnings/detailed" } },
+        { "name": "Connect Stripe Express", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/stripe/connect" } },
+        { "name": "Request Withdrawal", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/athletes/me/withdrawals", "body": { "mode": "raw", "raw": "{ \"amount\": 25.00 }" } } },
         { "name": "My Stats", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/stats" } },
         { "name": "My Earnings", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/earnings" } },
         { "name": "My Referral", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/referral" } },
         { "name": "Get Profile", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/profile" } },
+        { "name": "Generate Referral Code", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/referral" } },
+        { "name": "Get Referral Stats", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }], "url": "{{base_url}}/athletes/me/referral" } },
         { "name": "Update Profile", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/athletes/me/profile", "body": { "mode": "raw", "raw": "{ \"bio\": \"Updated bio here.\" }" } } },
-        { "name": "Add Media", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/athletes/me/media", "body": { "mode": "raw", "raw": "{ \"type\": \"photo\", \"url\": \"/uploads/photos/action1.jpg\" }" } } }
+        { "name": "Add Photo Media", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/athletes/me/media", "body": { "mode": "raw", "raw": "{ \"type\": \"photo\", \"url\": \"/uploads/photos/action1.jpg\" }" } } },
+        { "name": "Add Video Media", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{athlete_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/athletes/me/media", "body": { "mode": "raw", "raw": "{ \"type\": \"video\", \"url\": \"/uploads/clips/highlight.mp4\" }" } } }
       ]
     },
     {
@@ -153,7 +160,7 @@
         {
           "name": "Get Athlete Profile",
           "request": { "method": "GET", "url": "{{base_url}}/athletes/{{athlete_id}}" },
-          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200 or 404', () => pm.expect([200, 404]).to.include(pm.response.code));"] } }]
+          "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200 or 404', () => pm.expect([200, 404]).to.include(pm.response.code));", "if(pm.response.code === 200) { pm.test('Has media_gallery', () => pm.expect(pm.response.json().data).to.have.property('media_gallery')); pm.test('Has highlight_clip_url', () => pm.expect(pm.response.json().data).to.have.property('highlight_clip_url')); }"] } }]
         },
         { "name": "Leaderboard", "request": { "method": "GET", "url": "{{base_url}}/athletes/leaderboard" } }
       ]
@@ -226,7 +233,10 @@
         { "name": "Reject Athlete", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/admin/verifications/{{athlete_profile_id}}", "body": { "mode": "raw", "raw": "{ \"decision\": \"rejected\", \"notes\": \"Document was blurry. Please resubmit.\" }" } } },
         { "name": "List Athletes (Admin)", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": "{{base_url}}/admin/athletes" } },
         { "name": "Distribute Vote Income", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/admin/athletes/{{athlete_profile_id}}/distribute-income", "body": { "mode": "raw", "raw": "{\n  \"amount\": 500.00,\n  \"reason\": \"Monthly vote income distribution — June 2026\",\n  \"period\": \"2026-06\"\n}" } } },
-        { "name": "Athlete Transactions", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": "{{base_url}}/admin/athletes/{{athlete_profile_id}}/transactions" } }
+        { "name": "Athlete Transactions", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": "{{base_url}}/admin/athletes/{{athlete_profile_id}}/transactions" } },
+        { "name": "List Withdrawals", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": "{{base_url}}/admin/withdrawals" } },
+        { "name": "Approve Withdrawal", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }], "url": "{{base_url}}/admin/withdrawals/{{withdrawal_id}}/approve" } },
+        { "name": "Reject Withdrawal", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{base_url}}/admin/withdrawals/{{withdrawal_id}}/reject", "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Bank account name does not match ID.\"\n}" } } }
       ]
     },
     {

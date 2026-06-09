@@ -53,7 +53,7 @@ func New(
 
 	// ─── Handlers ─────────────────────────────────────────────
 	authH := handler.NewAuthHandler(authSvc, rdb, cfg.JWTSecret)
-	athleteH := handler.NewAthleteHandler(athleteRepo, userRepo, authSvc)
+	athleteH := handler.NewAthleteHandler(athleteRepo, userRepo, authSvc, cfg, asynqClient)
 	fanH := handler.NewFanHandler(userRepo, athleteRepo, orderRepo, orderSvc)
 	adminH := handler.NewAdminHandler(adminRepo, athleteRepo, orderRepo, productRepo, userRepo, cfg, asynqClient)
 	addrH := handler.NewAddressHandler(userRepo)
@@ -112,6 +112,10 @@ func New(
 			r.Put("/verifications/{id}", adminH.ReviewVerification)
 
 			// Athletes
+			// Withdrawals
+			r.Get("/withdrawals", adminH.ListWithdrawals)
+			r.Post("/withdrawals/{id}/approve", adminH.ApproveWithdrawal)
+			r.Post("/withdrawals/{id}/reject", adminH.RejectWithdrawal)
 			r.Get("/athletes", adminH.ListAthletes)
 			r.Post("/athletes/{id}/distribute-income", adminH.DistributeVoteIncome)
 			r.Get("/athletes/{id}/transactions", adminH.AthleteTransactions)
@@ -146,9 +150,15 @@ func New(
 			r.Put("/onboarding/verification", athleteH.OnboardingVerification)
 
 			// Dashboard
+			r.Get("/dashboard", athleteH.Dashboard)
 			r.Get("/stats", athleteH.Stats)
+			// Withdrawals & Stripe Connect
+			r.Post("/stripe/connect", athleteH.StripeConnect)
+			r.Post("/withdrawals", athleteH.RequestWithdrawal)
+			r.Get("/earnings/detailed", athleteH.EarningsDetailed)
 			r.Get("/earnings", athleteH.Earnings)
 			r.Get("/referral", athleteH.Referral)
+			r.Post("/referral", athleteH.GenerateReferralCode)
 
 			// Profile
 			r.Get("/profile", athleteH.GetProfile)

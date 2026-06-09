@@ -16,10 +16,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const router = useRouter();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<{ fullName: string; email: string; avatarUrl?: string | null } | null>(null);
+  const [userRole, setUserRole] = useState<string>('User');
 
   useEffect(() => {
     const authState = localStorage.getItem('isLoggedIn');
     const token = localStorage.getItem('uag_token');
+    const role = localStorage.getItem('userRole');
+    if (role) setUserRole(role);
+
     const loggedIn = authState === 'true' && !!token;
     if (!loggedIn) {
       router.push('/login');
@@ -68,7 +72,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
       <aside className="w-64 border-r border-white/10 flex flex-col sticky top-0 h-screen bg-dark-400">
         <div className="p-8">
           <div className="flex items-center gap-2 mb-12">
-            <Image src="/assets/logo.png" alt="UAG Logo" width={120} height={40} className="object-contain" />
+            <Image src="/assets/logo.png" alt="UAG Logo" width={120} height={40} className="object-contain" priority style={{ width: 'auto', height: 'auto' }} />
           </div>
 
           <nav className="space-y-2">
@@ -130,7 +134,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold">{userProfile?.fullName || 'User'}</p>
                 <p className="text-[10px] text-white/40 uppercase tracking-widest">
-                  {typeof window !== 'undefined' ? localStorage.getItem('userRole') || 'User' : 'User'}
+                  {userRole}
                 </p>
               </div>
               <div className="relative w-10 h-10 rounded-full overflow-hidden border border-white/10 group-hover:border-white/30 transition-all">

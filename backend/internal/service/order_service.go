@@ -57,7 +57,7 @@ func NewOrderService(
 //  7. Clear cart
 //  8. Enqueue order confirmation email
 //  9. Enqueue referral tip if user was referred
-func (s *OrderService) PlaceOrder(ctx context.Context, userID, addressID, pmID uuid.UUID) (*models.Order, error) {
+func (s *OrderService) PlaceOrder(ctx context.Context, userID, addressID, pmID uuid.UUID, referralCode string) (*models.Order, error) {
 	// 1. Get user
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
@@ -115,7 +115,33 @@ func (s *OrderService) PlaceOrder(ctx context.Context, userID, addressID, pmID u
 	// 8. Generate order number
 	orderNumber := fmt.Sprintf("ORD-%d", uuid.New().ID())
 
-	// 9. Create order record
+	// 9. Process referral code if provided
+	var referralAthleteID *uuid.UUID
+	if referralCode != "" {
+		athlete, err := s.athleteRepo.FindByReferralCode(ctx, referralCode)
+		if err == nil && athlete != nil {
+			referralAthleteID = &athlete.ID
+			
+			// Determine commission rate based on Tier
+			rate := 0.10 // ROOKIE (default)
+			if athlete.Tier == "RISING" {
+				rate = 0.15
+			} else if athlete.Tier == "ELITE" {
+				rate = 0.20
+			}
+			
+			commission := subtotal * rate
+			if err := s.athleteRepo.AddReferralEarnings(ctx, athlete.ID, commission); err != nil {
+				s.log.Error("failed to add referral earnings", zap.Error(err), zap.String("code", referralCode))
+			} else {
+				s.log.Info("referral earnings added successfully", zap.String("athlete_id", athlete.ID.String()), zap.Float64("commission", commission))
+			}
+		} else {
+			s.log.Error("failed to find referral athlete", zap.Error(err), zap.String("code", referralCode))
+		}
+	}
+
+	// 10. Create order record
 	order := &models.Order{
 		OrderNumber:           orderNumber,
 		UserID:                userID,
@@ -126,12 +152,13 @@ func (s *OrderService) PlaceOrder(ctx context.Context, userID, addressID, pmID u
 		Total:                 total,
 		StripePaymentIntentID: &pi.ID,
 		ShippingAddress:       address,
+		ReferralAthleteID:     referralAthleteID,
 	}
 	if err := s.orderRepo.Create(ctx, order, cart.Items); err != nil {
 		return nil, fmt.Errorf("saving order: %w", err)
 	}
 
-	// 10. Decrement inventory
+	// 11. Decrement inventory
 	for _, item := range cart.Items {
 		if err := s.productRepo.DecrementInventory(ctx, item.ProductID, item.Quantity); err != nil {
 			s.log.Warn("failed to decrement inventory", zap.String("product", item.ProductID.String()), zap.Error(err))

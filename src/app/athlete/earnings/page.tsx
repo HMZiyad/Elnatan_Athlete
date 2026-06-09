@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/templates/athlete-view/DashboardLayout';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Copy, Users, Zap } from 'lucide-react';
 import { Button } from '@/components/atoms/Button';
 import { apiCall } from '@/utils/api';
 
@@ -14,7 +14,9 @@ interface EarningsData {
 
 export default function EarningsPage() {
   const [earnings, setEarnings] = useState<EarningsData | null>(null);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [generatingCode, setGeneratingCode] = useState(false);
   const [error, setError] = useState('');
 
   const months = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -25,8 +27,12 @@ export default function EarningsPage() {
       try {
         setLoading(true);
         setError('');
-        const res = await apiCall<{ data: EarningsData }>('/athletes/me/earnings');
-        setEarnings(res.data);
+        const [resEarnings, resRef] = await Promise.all([
+          apiCall<{ data: EarningsData }>('/athletes/me/earnings'),
+          apiCall<{ data: { referral_code: string | null } }>('/athletes/me/referral')
+        ]);
+        setEarnings(resEarnings.data);
+        setReferralCode(resRef.data.referral_code);
       } catch (err: any) {
         setError(err.message || 'Failed to load earnings statistics.');
       } finally {
@@ -39,6 +45,25 @@ export default function EarningsPage() {
 
   const handleWithdrawClick = () => {
     alert("Withdrawal system is processed via Stripe Connect. Your request will be reviewed by admin.");
+  };
+
+  const handleGenerateReferral = async () => {
+    try {
+      setGeneratingCode(true);
+      const res = await apiCall<{ data: { referral_code: string } }>('/athletes/me/referral', { method: 'POST' });
+      setReferralCode(res.data.referral_code);
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate referral code.');
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
+
+  const handleCopyReferral = () => {
+    if (referralCode) {
+      navigator.clipboard.writeText(referralCode);
+      alert('Referral code copied to clipboard!');
+    }
   };
 
   if (loading) {
@@ -97,6 +122,48 @@ export default function EarningsPage() {
                 <p className="text-2xl font-bold tracking-tight">{stat.value}</p>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Referral Section */}
+        <div className="glass-card border-white/5 p-10 bg-gradient-to-r from-primary/10 to-transparent border-l-4 border-l-primary flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-primary flex-shrink-0">
+              <Users size={28} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold uppercase tracking-tight mb-2">Refer Fans, Earn 10%</h2>
+              <p className="text-sm text-white/60 max-w-md">
+                Share your unique referral code with your fans. When they use it during checkout in the UAG Shop, you will earn a 10% commission on their entire purchase!
+              </p>
+            </div>
+          </div>
+          
+          <div className="bg-dark-400 p-6 rounded-2xl border border-white/10 w-full md:w-auto min-w-[300px]">
+            <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-3 text-center md:text-left">Your Referral Code</p>
+            {referralCode ? (
+              <div className="flex gap-2">
+                <div className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 font-mono text-lg font-bold text-center tracking-wider text-primary">
+                  {referralCode}
+                </div>
+                <button 
+                  onClick={handleCopyReferral}
+                  className="bg-white/10 hover:bg-white/20 transition-colors px-4 rounded-xl flex items-center justify-center text-white cursor-pointer"
+                  title="Copy Code"
+                >
+                  <Copy size={18} />
+                </button>
+              </div>
+            ) : (
+              <Button 
+                onClick={handleGenerateReferral} 
+                disabled={generatingCode}
+                className="w-full flex items-center justify-center gap-2 uppercase tracking-widest text-xs py-3 cursor-pointer"
+              >
+                <Zap size={14} />
+                {generatingCode ? 'Generating...' : 'Generate Code Now'}
+              </Button>
+            )}
           </div>
         </div>
 

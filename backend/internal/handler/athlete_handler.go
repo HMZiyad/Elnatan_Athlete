@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -11,6 +12,12 @@ import (
 	"github.com/uag/backend/internal/repository"
 	"github.com/uag/backend/internal/service"
 	"github.com/uag/backend/internal/utils"
+	"github.com/uag/backend/internal/config"
+	"github.com/hibiken/asynq"
+	"github.com/uag/backend/internal/models"
+	"github.com/stripe/stripe-go/v78"
+	"github.com/stripe/stripe-go/v78/account"
+	"github.com/stripe/stripe-go/v78/accountlink"
 )
 
 // AthleteHandler handles all athlete-facing endpoints.
@@ -18,10 +25,18 @@ type AthleteHandler struct {
 	athleteRepo *repository.AthleteRepository
 	userRepo    *repository.UserRepository
 	authSvc     *service.AuthService
+	cfg         *config.Config
+	queue       *asynq.Client
 }
 
-func NewAthleteHandler(athleteRepo *repository.AthleteRepository, userRepo *repository.UserRepository, authSvc *service.AuthService) *AthleteHandler {
-	return &AthleteHandler{athleteRepo: athleteRepo, userRepo: userRepo, authSvc: authSvc}
+func NewAthleteHandler(athleteRepo *repository.AthleteRepository, userRepo *repository.UserRepository, authSvc *service.AuthService, cfg *config.Config, queue *asynq.Client) *AthleteHandler {
+	return &AthleteHandler{
+		athleteRepo: athleteRepo, 
+		userRepo:    userRepo, 
+		authSvc:     authSvc,
+		cfg:         cfg,
+		queue:       queue,
+	}
 }
 
 // ─── Onboarding ──────────────────────────────────────────────
@@ -85,13 +100,8 @@ func (h *AthleteHandler) OnboardingSport(w http.ResponseWriter, r *http.Request)
 	var req struct {
 		Sport              string `json:"sport" validate:"required"`
 		Level              string `json:"level" validate:"required,oneof=Amateur 'Semi Pro' College Pro"`
-		RecentAchievements string `json:"recent_achievements"`
-		Stats              struct {
-			Sprint200m      string `json:"sprint_200m"`
-			BestSeasonYear  string `json:"best_season_year"`
-			AvgPointsPerGame string `json:"avg_points_per_game"`
-			PersonalBest    string `json:"personal_best"`
-		} `json:"stats"`
+		RecentAchievements string            `json:"recent_achievements"`
+		Stats              map[string]string `json:"stats"`
 	}
 	if err := utils.Decode(r, &req); err != nil {
 		utils.BadRequest(w, "VALIDATION_ERROR", "Invalid body")
@@ -100,7 +110,7 @@ func (h *AthleteHandler) OnboardingSport(w http.ResponseWriter, r *http.Request)
 
 	if err := h.athleteRepo.UpdateSportStep(r.Context(), userID,
 		req.Sport, req.Level,
-		req.Stats.Sprint200m, req.Stats.BestSeasonYear, req.Stats.AvgPointsPerGame, req.Stats.PersonalBest,
+		req.Stats,
 		req.RecentAchievements,
 	); err != nil {
 		utils.InternalError(w)
@@ -229,7 +239,7 @@ func (h *AthleteHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.Success(w, map[string]interface{}{
-		"total_earnings":      ap.AvailableBalance + ap.LifetimeEarned,
+		"total_earnings":      ap.LifetimeEarned,
 		"total_votes":         ap.TotalVotes,
 		"total_profile_views": ap.TotalProfileViews,
 		"current_rank":        ap.GlobalRank,
@@ -252,6 +262,137 @@ func (h *AthleteHandler) Earnings(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *AthleteHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
+	userID := getUID(r)
+	ap, err := h.athleteRepo.FindByUserID(r.Context(), userID)
+	if err != nil {
+		utils.NotFound(w, "ATHLETE")
+		return
+	}
+
+	stats, err := h.athleteRepo.GetDashboardStats(r.Context(), ap.ID)
+	if err != nil {
+		utils.InternalError(w)
+		return
+	}
+
+	utils.Success(w, stats)
+}
+
+func (h *AthleteHandler) EarningsDetailed(w http.ResponseWriter, r *http.Request) {
+	userID := getUID(r)
+	ap, err := h.athleteRepo.FindByUserID(r.Context(), userID)
+	if err != nil {
+		utils.NotFound(w, "ATHLETE")
+		return
+	}
+
+	detailed, err := h.athleteRepo.GetEarningsDetailed(r.Context(), ap.ID)
+	if err != nil {
+		utils.InternalError(w)
+		return
+	}
+
+	utils.Success(w, detailed)
+}
+
+func (h *AthleteHandler) StripeConnect(w http.ResponseWriter, r *http.Request) {
+	userID := getUID(r)
+	ap, err := h.athleteRepo.FindByUserID(r.Context(), userID)
+	if err != nil {
+		utils.NotFound(w, "ATHLETE")
+		return
+	}
+
+	stripe.Key = h.cfg.StripeSecretKey
+
+	var accountID string
+	if ap.StripeConnectAccountID != nil && *ap.StripeConnectAccountID != "" {
+		accountID = *ap.StripeConnectAccountID
+	} else {
+		// Create a new Express account
+		params := &stripe.AccountParams{
+			Type: stripe.String(string(stripe.AccountTypeExpress)),
+			Capabilities: &stripe.AccountCapabilitiesParams{
+				Transfers: &stripe.AccountCapabilitiesTransfersParams{
+					Requested: stripe.Bool(true),
+				},
+			},
+		}
+		acct, err := account.New(params)
+		if err != nil {
+			utils.InternalError(w)
+			return
+		}
+		accountID = acct.ID
+		if err := h.athleteRepo.UpdateStripeConnectAccountID(r.Context(), ap.ID, accountID); err != nil {
+			utils.InternalError(w)
+			return
+		}
+	}
+
+	// Create account link
+	linkParams := &stripe.AccountLinkParams{
+		Account:    stripe.String(accountID),
+		RefreshURL: stripe.String(h.cfg.BaseURL + "/athlete/earnings?connect=refresh"),
+		ReturnURL:  stripe.String(h.cfg.BaseURL + "/athlete/earnings?connect=success"),
+		Type:       stripe.String("account_onboarding"),
+	}
+	link, err := accountlink.New(linkParams)
+	if err != nil {
+		utils.InternalError(w)
+		return
+	}
+
+	utils.Success(w, models.StripeConnectResponse{URL: link.URL})
+}
+
+func (h *AthleteHandler) RequestWithdrawal(w http.ResponseWriter, r *http.Request) {
+	var req models.WithdrawalRequest
+	if err := DecodeBody(r, &req); err != nil {
+		BadReq(w, "INVALID_REQUEST", "Invalid body")
+		return
+	}
+
+	if req.Amount < 25.00 {
+		BadReq(w, "INVALID_AMOUNT", "Minimum withdrawal is $25.00")
+		return
+	}
+
+	userID := getUID(r)
+	ap, err := h.athleteRepo.FindByUserID(r.Context(), userID)
+	if err != nil {
+		utils.NotFound(w, "ATHLETE")
+		return
+	}
+
+	if ap.StripeConnectAccountID == nil || *ap.StripeConnectAccountID == "" {
+		BadReq(w, "NOT_CONNECTED", "Please connect Stripe first")
+		return
+	}
+
+	if ap.AvailableBalance < req.Amount {
+		BadReq(w, "INSUFFICIENT_FUNDS", "Not enough available balance")
+		return
+	}
+
+	// Create withdrawal record
+	_, err = h.athleteRepo.RequestWithdrawal(r.Context(), ap.ID, req.Amount, nil)
+	if err != nil {
+		if err.Error() == "INSUFFICIENT_FUNDS" {
+			utils.Error(w, http.StatusBadRequest, "INSUFFICIENT_FUNDS", "Not enough available balance")
+		} else {
+			utils.InternalError(w)
+		}
+		return
+	}
+
+	// Withdrawal is recorded as "processing".
+	// An admin will review it and enqueue the Stripe Transfer task.
+
+	utils.Success(w, map[string]string{"message": "Withdrawal processing"})
+}
+
 func (h *AthleteHandler) Referral(w http.ResponseWriter, r *http.Request) {
 	userID := getUID(r)
 	ap, err := h.athleteRepo.FindByUserID(r.Context(), userID)
@@ -265,6 +406,34 @@ func (h *AthleteHandler) Referral(w http.ResponseWriter, r *http.Request) {
 		"referral_link":          ap.ReferralLink,
 		"earnings_per_signup":    0.50,
 		"lifetime_tip_percentage": 10,
+	})
+}
+
+func (h *AthleteHandler) GenerateReferralCode(w http.ResponseWriter, r *http.Request) {
+	userID := getUID(r)
+	ap, err := h.athleteRepo.FindByUserID(r.Context(), userID)
+	if err != nil {
+		utils.NotFound(w, "ATHLETE")
+		return
+	}
+
+	if ap.ReferralCode != nil && *ap.ReferralCode != "" {
+		utils.Success(w, map[string]interface{}{
+			"referral_code": ap.ReferralCode,
+		})
+		return
+	}
+
+	// Generate a random 8-character code
+	code := fmt.Sprintf("REF-%s", strings.ToUpper(uuid.New().String()[:8]))
+	
+	if err := h.athleteRepo.UpdateReferralCode(r.Context(), ap.ID, code); err != nil {
+		utils.InternalError(w)
+		return
+	}
+
+	utils.Success(w, map[string]interface{}{
+		"referral_code": code,
 	})
 }
 
@@ -290,6 +459,7 @@ func (h *AthleteHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		"avatar_url":   user.AvatarURL,
 		"sport":        ap.Sport,
 		"position":     ap.Position,
+		"stats":        ap.Stats,
 		"achievements": ap.Achievements,
 		"bio":          ap.Bio,
 		"socials": map[string]interface{}{
@@ -298,6 +468,7 @@ func (h *AthleteHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 			"youtube":   ap.YoutubeURL,
 			"website":   ap.WebsiteURL,
 		},
+		"highlight_clip_url": ap.HighlightClipURL,
 		"media_gallery": media,
 	})
 }
@@ -321,7 +492,8 @@ func (h *AthleteHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	athleteFields := map[string]interface{}{}
 	mapping := map[string]string{
 		"sport": "sport", "position": "position", "achievements": "achievements",
-		"bio": "bio", "location": "location",
+		"bio": "bio", "location": "location", "stats": "stats",
+		"highlight_clip_url": "highlight_clip_url",
 	}
 	for jsonKey, dbCol := range mapping {
 		if v, ok := req[jsonKey]; ok {
@@ -489,6 +661,8 @@ func (h *AthleteHandler) GetPublicProfile(w http.ResponseWriter, r *http.Request
 		"verified":          ap.Verified,
 		"highlight_clip_url": ap.HighlightClipURL,
 		"photos":            photos,
+		"media_gallery":     media,
+		"stats":             ap.Stats,
 		"socials": map[string]interface{}{
 			"instagram": ap.InstagramURL, "twitter_x": ap.TwitterURL,
 			"youtube": ap.YoutubeURL, "website": ap.WebsiteURL,

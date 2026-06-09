@@ -3,6 +3,7 @@ import { Video, Plus, Camera, Play, Globe, Link as LinkIcon, Trash2 } from 'luci
 import { Input } from '../../atoms/Input';
 import { Button } from '../../atoms/Button';
 import { apiCall, apiUpload } from '../../../utils/api';
+import { SafeVideo } from '../../atoms/SafeVideo';
 import Image from 'next/image';
 
 interface StoryStepProps {
@@ -150,6 +151,17 @@ export const StoryStep: React.FC<StoryStepProps> = ({ onBack, onGoLive }) => {
           <div className="border-2 border-dashed border-white/5 rounded-2xl p-12 flex flex-col items-center justify-center text-center bg-dark-400 hover:bg-dark-300 transition-all group relative">
             {uploadingVideo ? (
               <div className="py-8 text-sm font-bold uppercase tracking-wider text-white/60">Uploading highlight clip...</div>
+            ) : highlightClipUrl ? (
+              <div className="w-full relative aspect-video rounded-xl overflow-hidden bg-black/50 border border-white/10 group/video">
+                <SafeVideo src={highlightClipUrl} controls className="w-full h-full object-contain" />
+                <button 
+                  type="button"
+                  onClick={() => setHighlightClipUrl('')}
+                  className="absolute top-4 right-4 p-2 bg-red-500/80 text-white rounded-full opacity-0 group-hover/video:opacity-100 transition-opacity hover:bg-red-500"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             ) : (
               <>
                 <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">

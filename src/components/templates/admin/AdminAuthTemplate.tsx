@@ -20,6 +20,7 @@ export const AdminAuthTemplate: React.FC<AdminAuthTemplateProps> = ({ children, 
               fill
               className="object-contain invert contrast-200"
               priority
+              style={{ width: 'auto', height: 'auto' }}
             />
           </div>
           

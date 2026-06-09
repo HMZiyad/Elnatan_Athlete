@@ -73,6 +73,10 @@ func main() {
 	// Register leaderboard task handler
 	mux.HandleFunc(tasks.TypeLeaderboardRefresh, leaderboardHandler.HandleLeaderboardRefresh)
 
+	// Register stripe task handler
+	stripeHandler := tasks.NewStripeTaskProcessor(athleteRepo, cfg.StripeSecretKey)
+	mux.HandleFunc(tasks.TypeProcessWithdrawal, stripeHandler.HandleProcessWithdrawalTask)
+
 	// ─── Asynq Scheduler (cron jobs) ─────────────────────────
 	// Refresh leaderboard rankings every hour
 	scheduler := asynq.NewScheduler(redisOpt, nil)

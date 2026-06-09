@@ -103,11 +103,8 @@ type AthleteProfile struct {
 	HighlightClipURL *string `json:"highlight_clip_url"`
 
 	// Sport stats
-	StatSprint200m    *string `json:"stat_sprint_200m,omitempty"`
-	StatBestSeasonYear *string `json:"stat_best_season_year,omitempty"`
-	StatAvgPoints     *string `json:"stat_avg_points,omitempty"`
-	StatPersonalBest  *string `json:"stat_personal_best,omitempty"`
-	RecentAchievements *string `json:"recent_achievements,omitempty"`
+	Stats              map[string]string `json:"stats,omitempty"`
+	RecentAchievements *string           `json:"recent_achievements,omitempty"`
 
 	// Socials
 	InstagramURL *string `json:"instagram_url,omitempty"`
@@ -134,9 +131,10 @@ type AthleteProfile struct {
 	ReferralLink *string `json:"referral_link,omitempty"`
 
 	// Financials
-	AvailableBalance float64 `json:"available_balance"`
-	LifetimeEarned   float64 `json:"lifetime_earned"`
-	PendingBalance   float64 `json:"pending_balance"`
+	AvailableBalance        float64 `json:"available_balance"`
+	LifetimeEarned          float64 `json:"lifetime_earned"`
+	PendingBalance          float64 `json:"pending_balance"`
+	StripeConnectAccountID  *string `json:"stripe_connect_account_id,omitempty"`
 
 	// Stats
 	TotalVotes       int64       `json:"total_votes"`
@@ -286,6 +284,7 @@ type Order struct {
 	Total                 float64     `json:"total"`
 	StripePaymentIntentID *string     `json:"-"`
 	ShippingAddress       *Address    `json:"shipping_address,omitempty"`
+	ReferralAthleteID     *uuid.UUID  `json:"referral_athlete_id,omitempty"`
 	CreatedAt             time.Time   `json:"created_at"`
 	UpdatedAt             time.Time   `json:"updated_at"`
 }
@@ -325,4 +324,85 @@ type ReferralLink struct {
 	ReferredUserID uuid.UUID `json:"referred_user_id"`
 	ReferrerID     uuid.UUID `json:"referrer_id"`
 	CreatedAt      time.Time `json:"created_at"`
+}
+
+// ─── MOBILE APP RESPONSES ────────────────────────────────────
+
+type TrendData struct {
+	Value     string `json:"value"`
+	IsUp      bool   `json:"is_up"`
+}
+
+type RecentActivity struct {
+	Type        string    `json:"type"` // e.g., "vote", "rank", "follower", "view"
+	Description string    `json:"description"`
+	Timestamp   time.Time `json:"timestamp"`
+}
+
+type DashboardResponse struct {
+	AthleteName     string         `json:"athlete_name"`
+	Tier            string         `json:"tier"`
+	TotalVotes      int64          `json:"total_votes"`
+	VotesTrend      TrendData      `json:"votes_trend"`
+	UAGScore        int            `json:"uag_score"`
+	UAGScoreTrend   TrendData      `json:"uag_score_trend"`
+	ProfileViews30D int            `json:"profile_views_30d"`
+	ViewsTrend      TrendData      `json:"views_trend"`
+	CurrentRank     int            `json:"current_rank"`
+	RankTrend       TrendData      `json:"rank_trend"`
+	ViewsChartData  []int          `json:"views_chart_data"`
+	RecentActivity  []RecentActivity `json:"recent_activity"`
+}
+
+type WithdrawalHistoryItem struct {
+	Amount float64   `json:"amount"`
+	Method string    `json:"method"`
+	Date   time.Time `json:"date"`
+	Status string    `json:"status"` // "Completed", "Pending", etc.
+}
+
+type ProductCommission struct {
+	ProductName      string  `json:"product_name"`
+	Sales            int     `json:"sales"`
+	CommissionEarned float64 `json:"commission_earned"`
+}
+
+type EarningsDetailedResponse struct {
+	CurrentTier         string                  `json:"current_tier"`
+	OrdersCount         int                     `json:"orders_count"`
+	OrdersToNextTier    int                     `json:"orders_to_next_tier"`
+	AvailableBalance    float64                 `json:"available_balance"`
+	PendingBalance      float64                 `json:"pending_balance"`
+	MinWithdrawal       float64                 `json:"min_withdrawal"`
+	WithdrawalHistory   []WithdrawalHistoryItem `json:"withdrawal_history"`
+	ThirtyDayEarnings   float64                 `json:"thirty_day_earnings"`
+	ThirtyDayTrend      TrendData               `json:"thirty_day_trend"`
+	AllTimeEarnings     float64                 `json:"all_time_earnings"`
+	PendingPayout       float64                 `json:"pending_payout"`
+	CommissionRate      int                     `json:"commission_rate"` // e.g., 15 for 15%
+	EarningsChartData   []float64               `json:"earnings_chart_data"`
+	CommissionByProduct []ProductCommission     `json:"commission_by_product"`
+}
+
+type WithdrawalRequest struct {
+	Amount float64 `json:"amount"`
+}
+
+type StripeConnectResponse struct {
+	URL string `json:"url"`
+}
+
+type RejectWithdrawalRequest struct {
+	Reason string `json:"reason"`
+}
+
+type WithdrawalDetail struct {
+	ID              uuid.UUID `json:"id"`
+	AthleteID       uuid.UUID `json:"athlete_id"`
+	AthleteName     string    `json:"athlete_name"`
+	Amount          float64   `json:"amount"`
+	Status          string    `json:"status"`
+	RejectionReason *string   `json:"rejection_reason,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }

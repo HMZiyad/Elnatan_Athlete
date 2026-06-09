@@ -230,8 +230,9 @@ func (h *FanHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 func (h *FanHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 	userID := getUID(r)
 	var req struct {
-		AddressID       string `json:"address_id" validate:"required"`
-		PaymentMethodID string `json:"payment_method_id" validate:"required"`
+		AddressID       string  `json:"address_id" validate:"required"`
+		PaymentMethodID string  `json:"payment_method_id" validate:"required"`
+		ReferralCode    *string `json:"referral_code"`
 	}
 	if err := utils.Decode(r, &req); err != nil {
 		utils.BadRequest(w, "VALIDATION_ERROR", "Invalid body")
@@ -249,7 +250,12 @@ func (h *FanHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	order, err := h.orderSvc.PlaceOrder(r.Context(), userID, addressID, pmID)
+	refCode := ""
+	if req.ReferralCode != nil {
+		refCode = *req.ReferralCode
+	}
+
+	order, err := h.orderSvc.PlaceOrder(r.Context(), userID, addressID, pmID, refCode)
 	if err != nil {
 		switch {
 		case err.Error() == "EMPTY_CART":

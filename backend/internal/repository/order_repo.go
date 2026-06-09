@@ -38,11 +38,11 @@ func (r *OrderRepository) Create(ctx context.Context, o *models.Order, items []m
 	}
 
 	err = tx.QueryRow(ctx, `
-		INSERT INTO orders (id, order_number, user_id, address_id, payment_method_id, status, subtotal, shipping, tax, total, stripe_payment_intent_id, shipping_address)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		INSERT INTO orders (id, order_number, user_id, address_id, payment_method_id, status, subtotal, shipping, tax, total, stripe_payment_intent_id, shipping_address, referral_athlete_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		RETURNING created_at, updated_at`,
 		o.ID, o.OrderNumber, o.UserID, nil, nil, o.Status,
-		o.Subtotal, o.Shipping, o.Tax, o.Total, o.StripePaymentIntentID, addrJSON,
+		o.Subtotal, o.Shipping, o.Tax, o.Total, o.StripePaymentIntentID, addrJSON, o.ReferralAthleteID,
 	).Scan(&o.CreatedAt, &o.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("inserting order: %w", err)

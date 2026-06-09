@@ -100,7 +100,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       {/* Sidebar */}
       <aside className="w-64 bg-[#0A0A0A] text-white flex flex-col fixed h-full z-30">
         <div className="p-8">
-          <Image src="/assets/logo.png" alt="UAG Logo" width={120} height={40} className="object-contain" />
+          <Image src="/assets/logo.png" alt="UAG Logo" width={120} height={40} className="object-contain" priority style={{ width: 'auto', height: 'auto' }} />
         </div>
 
         <nav className="flex-1 mt-10 px-4 space-y-2">

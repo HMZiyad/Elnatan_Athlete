@@ -22,6 +22,7 @@ export default function CheckoutPage() {
   
   const [selectedAddress, setSelectedAddress] = useState('');
   const [selectedPayment, setSelectedPayment] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   
   const [orderComplete, setOrderComplete] = useState<{order_number: string} | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,12 +91,17 @@ export default function CheckoutPage() {
     setProcessing(true);
     setError('');
     try {
+      const payload: any = {
+        address_id: selectedAddress,
+        payment_method_id: selectedPayment
+      };
+      if (referralCode.trim()) {
+        payload.referral_code = referralCode.trim();
+      }
+
       const res = await apiCall<{ data: any }>('/orders', {
         method: 'POST',
-        body: JSON.stringify({
-          address_id: selectedAddress,
-          payment_method_id: selectedPayment
-        })
+        body: JSON.stringify(payload)
       });
       setOrderComplete(res.data);
     } catch (err: any) {
@@ -326,6 +332,18 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Referral Code */}
+              <div className="mb-6">
+                <label className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2 block">Referral Code (Optional)</label>
+                <input 
+                  type="text" 
+                  placeholder="Enter code..."
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary uppercase placeholder:normal-case font-mono text-sm tracking-widest transition-colors"
+                />
               </div>
 
               <div className="space-y-4 mb-6 pb-6 border-b border-white/10 pt-6 border-t border-white/10">

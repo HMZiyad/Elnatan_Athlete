@@ -4,9 +4,10 @@ import React, { useState, useEffect, Suspense, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { User, MapPin, Camera, Edit2, Plus, Trash2, Play } from 'lucide-react';
+import { User, MapPin, Camera, Edit2, Plus, Trash2, Play, Video } from 'lucide-react';
 import { DashboardLayout } from '@/components/templates/athlete-view/DashboardLayout';
 import { apiCall, apiUpload } from '@/utils/api';
+import { SafeVideo } from '@/components/atoms/SafeVideo';
 
 interface AthleteProfileData {
   full_name: string;
@@ -27,7 +28,48 @@ interface AthleteProfileData {
     website?: string | null;
   };
   media_gallery?: any[];
+  stats?: Record<string, string>;
+  highlight_clip_url?: string;
 }
+
+const SPORT_STATS_CONFIG: Record<string, { key: string; label: string; placeholder: string }[]> = {
+  'Track & Field': [
+    { key: 'sprint_200m', label: '200m Sprint', placeholder: '22.84s' },
+    { key: 'best_season_year', label: 'Best Season Year', placeholder: '2023' },
+    { key: 'personal_best', label: 'Personal Best', placeholder: '9.8s' },
+    { key: 'rank', label: 'National Rank', placeholder: '1st' }
+  ],
+  'Basketball': [
+    { key: 'points_per_game', label: 'Avg Points / Game', placeholder: '28.4' },
+    { key: 'assists_per_game', label: 'Avg Assists / Game', placeholder: '8.2' },
+    { key: 'rebounds_per_game', label: 'Avg Rebounds / Game', placeholder: '10.5' },
+    { key: 'steals_per_game', label: 'Avg Steals / Game', placeholder: '2.1' },
+  ],
+  'Football': [
+    { key: 'goals', label: 'Goals', placeholder: '12' },
+    { key: 'assists', label: 'Assists', placeholder: '8' },
+    { key: 'pass_completion', label: 'Pass Completion %', placeholder: '85%' },
+    { key: 'tackles', label: 'Tackles', placeholder: '45' },
+  ],
+  'Hockey': [
+    { key: 'goals', label: 'Goals', placeholder: '15' },
+    { key: 'assists', label: 'Assists', placeholder: '20' },
+    { key: 'points', label: 'Total Points', placeholder: '35' },
+    { key: 'plus_minus', label: '+/- Rating', placeholder: '+10' },
+  ],
+  'Baseball': [
+    { key: 'batting_avg', label: 'Batting Average', placeholder: '.310' },
+    { key: 'home_runs', label: 'Home Runs', placeholder: '25' },
+    { key: 'rbis', label: 'RBIs', placeholder: '80' },
+    { key: 'stolen_bases', label: 'Stolen Bases', placeholder: '15' },
+  ],
+  'Other': [
+    { key: 'stat_1', label: 'Primary Stat', placeholder: 'Value' },
+    { key: 'stat_2', label: 'Secondary Stat', placeholder: 'Value' },
+    { key: 'stat_3', label: 'Tertiary Stat', placeholder: 'Value' },
+    { key: 'stat_4', label: 'Quaternary Stat', placeholder: 'Value' },
+  ]
+};
 
 function ProfileContent() {
   const searchParams = useSearchParams();
@@ -42,10 +84,12 @@ function ProfileContent() {
   const [position, setPosition] = useState('');
   const [achievements, setAchievements] = useState('');
   const [bio, setBio] = useState('');
+  const [highlightClipUrl, setHighlightClipUrl] = useState('');
   const [instagram, setInstagram] = useState('');
   const [twitter, setTwitter] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [mediaGallery, setMediaGallery] = useState<any[]>([]);
+  const [stats, setStats] = useState<Record<string, string>>({});
 
   // Password fields
   const [currentPassword, setCurrentPassword] = useState('');
@@ -60,6 +104,8 @@ function ProfileContent() {
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
+  const clipInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingClip, setUploadingClip] = useState(false);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -94,10 +140,12 @@ function ProfileContent() {
         setPosition(d.position || '');
         setAchievements(d.achievements || '');
         setBio(d.bio || '');
+        setHighlightClipUrl(d.highlight_clip_url || '');
         setInstagram(d.socials?.instagram || '');
         setTwitter(d.socials?.twitter_x || '');
         setAvatarUrl(d.avatar_url || '');
         setMediaGallery(d.media_gallery || []);
+        setStats(d.stats || {});
 
         await fetchAddresses();
       } catch (err: any) {
@@ -207,6 +255,24 @@ function ProfileContent() {
     }
   };
 
+  const handleClipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError('');
+    setUploadingClip(true);
+    try {
+      const uploadRes = await apiUpload(file, 'clip');
+      const url = uploadRes.url.startsWith('http') ? uploadRes.url : `http://localhost:8080${uploadRes.url}`;
+      setHighlightClipUrl(url);
+      setSuccessMsg('Highlight clip uploaded successfully! Remember to save changes.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload highlight clip.');
+    } finally {
+      setUploadingClip(false);
+    }
+  };
+
   const handleDeleteMedia = async (mediaId: string) => {
     if (!confirm('Are you sure you want to delete this media item?')) return;
     setError('');
@@ -239,6 +305,8 @@ function ProfileContent() {
           date_of_birth: dateOfBirth,
           sport: sport,
           position: position,
+          stats: stats,
+          highlight_clip_url: highlightClipUrl,
           achievements: achievements,
           bio: bio,
           socials: {
@@ -301,6 +369,7 @@ function ProfileContent() {
       {/* Hidden file inputs */}
       <input type="file" ref={avatarInputRef} accept="image/*" className="hidden" onChange={handleAvatarUpload} />
       <input type="file" ref={mediaInputRef} accept="image/*,video/*" className="hidden" onChange={handleMediaUpload} />
+      <input type="file" ref={clipInputRef} accept="video/*" className="hidden" onChange={handleClipUpload} />
 
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-64 flex-shrink-0 space-y-2">
@@ -470,6 +539,26 @@ function ProfileContent() {
               </div>
             </div>
 
+            {/* Top Stats */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold text-white border-b border-white/5 pb-2">Key Statistics</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {(SPORT_STATS_CONFIG[sport] || SPORT_STATS_CONFIG['Other']).map((statConfig) => (
+                  <div key={statConfig.key} className="space-y-2">
+                    <label className="text-xs font-bold text-white/40 uppercase tracking-widest">{statConfig.label}</label>
+                    <input 
+                      type="text" 
+                      placeholder={statConfig.placeholder}
+                      value={stats[statConfig.key] || ''} 
+                      onChange={(e) => setStats({ ...stats, [statConfig.key]: e.target.value })} 
+                      disabled={saving}
+                      className="w-full bg-dark-400 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white/30" 
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Story Details */}
             <div className="space-y-6">
               <h3 className="text-lg font-bold text-white border-b border-white/5 pb-2">Your Story</h3>
@@ -483,6 +572,52 @@ function ProfileContent() {
                     disabled={saving}
                     className="w-full bg-dark-400 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white/30 resize-none"
                   ></textarea>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Highlight Clip URL or File</label>
+                  
+                  {uploadingClip ? (
+                    <div className="py-8 text-sm font-bold uppercase tracking-wider text-white/60 text-center border-2 border-dashed border-white/5 rounded-2xl bg-dark-400">
+                      Uploading highlight clip...
+                    </div>
+                  ) : highlightClipUrl ? (
+                    <div className="w-full relative aspect-video rounded-xl overflow-hidden bg-black/50 border border-white/10 group/video mb-2">
+                      <SafeVideo src={highlightClipUrl} controls className="w-full h-full object-contain" />
+                      <button 
+                        type="button"
+                        onClick={() => setHighlightClipUrl('')}
+                        className="absolute top-4 right-4 p-2 bg-red-500/80 text-white rounded-full opacity-0 group-hover/video:opacity-100 transition-opacity hover:bg-red-500 cursor-pointer"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center bg-dark-400 hover:bg-dark-300 transition-all group relative mb-2">
+                      <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <Video className="text-white/40" size={20} />
+                      </div>
+                      <p className="text-[10px] text-white/40 max-w-[200px] leading-relaxed mb-4 font-medium">
+                        MP4 or MOV - up to 200MB - or paste a YouTube URL below
+                      </p>
+                      <button 
+                        onClick={() => clipInputRef.current?.click()}
+                        type="button"
+                        disabled={saving}
+                        className="bg-white text-black text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-lg flex items-center gap-2 cursor-pointer hover:bg-white/90"
+                      >
+                        <Plus size={12} /> Upload Video
+                      </button>
+                    </div>
+                  )}
+
+                  <input 
+                    type="url" 
+                    placeholder="Or paste URL here..."
+                    value={highlightClipUrl} 
+                    onChange={(e) => setHighlightClipUrl(e.target.value)} 
+                    disabled={saving}
+                    className="w-full bg-dark-400 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-white/30 text-sm" 
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-white/40 uppercase tracking-widest">Instagram Link</label>
