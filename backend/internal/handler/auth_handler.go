@@ -133,9 +133,6 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use the UUID from context
-	uid, _ := r.Context().Value(middleware.ContextKeyUserID).(interface{})
-	_ = uid
 
 	utils.Success(w, map[string]interface{}{"message": "use /fans/me/profile or /athletes/me/profile for full data"})
 }
